@@ -302,6 +302,13 @@ pub fn map_device_descriptor<'a>(
     )
 }
 
+pub unsafe fn map_render_pipeline_descriptor<'a>(
+    _: &native::WGPURenderPipelineDescriptor,
+    foo: Option<&native::WGPUFooRenderPipelineDescriptor>,
+) -> Option<u32> {
+    foo.map(|x| x.foo)
+}
+
 pub unsafe fn map_pipeline_layout_descriptor<'a>(
     des: &native::WGPUPipelineLayoutDescriptor,
     extras: Option<&native::WGPUPipelineLayoutExtras>,
@@ -952,6 +959,10 @@ pub fn features_to_native(features: wgt::Features) -> Vec<native::WGPUFeatureNam
         temp.push(native::WGPUNativeFeature_VERTEX_WRITABLE_STORAGE);
     }
 
+    if features.contains(wgt::Features::FOO) {
+        temp.push(native::WGPUFeatureName_Foo);
+    }
+
     temp
 }
 
@@ -976,6 +987,9 @@ pub fn map_feature(feature: native::WGPUFeatureName) -> Option<wgt::Features> {
         native::WGPUNativeFeature_MULTI_DRAW_INDIRECT => Some(Features::MULTI_DRAW_INDIRECT),
         native::WGPUNativeFeature_MULTI_DRAW_INDIRECT_COUNT => Some(Features::MULTI_DRAW_INDIRECT_COUNT),
         native::WGPUNativeFeature_VERTEX_WRITABLE_STORAGE => Some(Features::VERTEX_WRITABLE_STORAGE),
+
+        // Custom extension
+        native::WGPUFeatureName_Foo => Some(Features::FOO),
 
         // not available in wgpu-core
         native::WGPUFeatureName_RG11B10UfloatRenderable => None,

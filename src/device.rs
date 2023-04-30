@@ -1,6 +1,6 @@
 use crate::conv::{
     map_adapter_options, map_device_descriptor, map_pipeline_layout_descriptor, map_shader_module,
-    map_swapchain_descriptor,
+    map_swapchain_descriptor, map_render_pipeline_descriptor,
 };
 use crate::native::{
     unwrap_swap_chain_handle, Handle, IntoHandle, IntoHandleWithContext, UnwrapId,
@@ -879,6 +879,12 @@ pub unsafe extern "C" fn wgpuDeviceCreateRenderPipeline(
     let (device, context) = device.unwrap_handle();
     let descriptor = descriptor.expect("invalid descriptor");
 
+    let foo_config = follow_chain!(
+        map_render_pipeline_descriptor(
+            descriptor,
+            WGPUFooSType_FooRenderPipelineDescriptor => native::WGPUFooRenderPipelineDescriptor)
+    );
+
     let desc = wgc::pipeline::RenderPipelineDescriptor {
         label: OwnedLabel::new(descriptor.label).into_cow(),
         layout: descriptor.layout.as_option(),
@@ -998,6 +1004,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateRenderPipeline(
                 ),
             }),
         multiview: None,
+        foo: foo_config,
     };
 
     let implicit_pipeline_ids = match desc.layout {
