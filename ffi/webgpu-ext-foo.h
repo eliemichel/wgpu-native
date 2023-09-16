@@ -24,7 +24,7 @@ typedef enum WGPUFooFeatureName {
 // Our extra structures
 typedef struct WGPUFooRenderPipelineDescriptor {
 	// This first field is conventionally called 'chain'
-	WGPUChainedStructOut chain;
+	WGPUChainedStruct chain;
 
 	// Your custom fields here
 	uint32_t foo;
