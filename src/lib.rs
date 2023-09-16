@@ -1,7 +1,7 @@
 use conv::{
     map_device_descriptor, map_instance_backend_flags, map_instance_descriptor,
     map_pipeline_layout_descriptor, map_primitive_state, map_shader_module, map_surface,
-    map_swapchain_descriptor, CreateSurfaceParams,
+    map_swapchain_descriptor, map_render_pipeline_descriptor, CreateSurfaceParams,
 };
 use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
@@ -968,6 +968,7 @@ pub unsafe extern "C" fn wgpuCommandEncoderBeginComputePass(
     let desc = match descriptor {
         Some(descriptor) => wgc::command::ComputePassDescriptor {
             label: ptr_into_label(descriptor.label),
+            timestamp_writes: None,
         },
         None => wgc::command::ComputePassDescriptor::default(),
     };
@@ -1038,6 +1039,8 @@ pub unsafe extern "C" fn wgpuCommandEncoderBeginRenderPass(
                 .collect(),
         ),
         depth_stencil_attachment: depth_stencil_attachment.as_ref(),
+        timestamp_writes: None,
+        occlusion_query_set: None,
     };
 
     Arc::into_raw(Arc::new(WGPURenderPassEncoderImpl {
@@ -2248,6 +2251,11 @@ pub unsafe extern "C" fn wgpuDeviceCreateRenderPipeline(
                 ),
             }),
         multiview: None,
+        foo: follow_chain!(
+            map_render_pipeline_descriptor(
+                descriptor,
+                WGPUFooSType_FooRenderPipelineDescriptor => native::WGPUFooRenderPipelineDescriptor)
+        ),
     };
 
     let implicit_pipeline_ids = match desc.layout {

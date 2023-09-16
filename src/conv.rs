@@ -261,6 +261,7 @@ pub fn map_instance_descriptor(
         wgt::InstanceDescriptor {
             backends: map_instance_backend_flags(extras.backends as native::WGPUInstanceBackend),
             dx12_shader_compiler,
+            gles_minor_version: wgt::Gles3MinorVersion::default(),
         }
     } else {
         wgt::InstanceDescriptor::default()
