@@ -1,7 +1,7 @@
 use crate::{map_enum, native};
-use lazy_static::lazy_static;
 use log::{Level, LevelFilter, Metadata, Record};
-use std::{ffi::CString, sync::Mutex};
+use parking_lot::RwLock;
+use std::ffi::CString;
 
 #[no_mangle]
 pub extern "C" fn wgpuGetVersion() -> std::os::raw::c_uint {
@@ -36,12 +36,9 @@ impl log::Log for Logger {
     }
 
     fn log(&self, record: &Record) {
-        let (callback, userdata) = {
-            let logger = LOGGER_INFO.lock().unwrap();
-            (logger.callback, logger.userdata)
-        };
+        let logger = LOGGER_INFO.read();
 
-        if let Some(callback) = callback {
+        if let Some(callback) = logger.callback {
             let msg = record.args().to_string();
             let msg_c = CString::new(msg).unwrap();
             let level = match record.level() {
@@ -53,7 +50,7 @@ impl log::Log for Logger {
             };
 
             unsafe {
-                callback(level, msg_c.as_ptr(), userdata);
+                callback(level, msg_c.as_ptr(), logger.userdata);
             }
 
             // We do not use std::mem::forget(msg_c), so Rust will reclaim the memory
@@ -70,21 +67,20 @@ struct LoggerInfo {
     userdata: *mut std::os::raw::c_void,
 }
 unsafe impl Send for LoggerInfo {}
+unsafe impl Sync for LoggerInfo {}
 
-lazy_static! {
-    static ref LOGGER_INFO: Mutex<LoggerInfo> = Mutex::new(LoggerInfo {
-        initialized: false,
-        callback: None,
-        userdata: std::ptr::null_mut(),
-    });
-}
+static LOGGER_INFO: RwLock<LoggerInfo> = RwLock::new(LoggerInfo {
+    initialized: false,
+    callback: None,
+    userdata: std::ptr::null_mut(),
+});
 
 #[no_mangle]
 pub extern "C" fn wgpuSetLogCallback(
     callback: native::WGPULogCallback,
     userdata: *mut std::os::raw::c_void,
 ) {
-    let mut logger = LOGGER_INFO.lock().unwrap();
+    let mut logger = LOGGER_INFO.write();
     logger.callback = callback;
     logger.userdata = userdata;
     if !logger.initialized {

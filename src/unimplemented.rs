@@ -30,16 +30,6 @@ pub extern "C" fn wgpuBufferGetMapState(_buffer: native::WGPUBuffer) -> native::
 }
 
 #[no_mangle]
-pub extern "C" fn wgpuBufferGetSize(_buffer: native::WGPUBuffer) -> u64 {
-    unimplemented!();
-}
-
-#[no_mangle]
-pub extern "C" fn wgpuBufferGetUsage(_buffer: native::WGPUBuffer) -> native::WGPUBufferUsage {
-    unimplemented!();
-}
-
-#[no_mangle]
 pub extern "C" fn wgpuBufferSetLabel(
     _buffer: native::WGPUBuffer,
     _label: *const ::std::os::raw::c_char,
@@ -100,23 +90,6 @@ pub extern "C" fn wgpuDeviceCreateRenderPipelineAsync(
 }
 
 #[no_mangle]
-pub extern "C" fn wgpuDevicePopErrorScope(
-    _device: native::WGPUDevice,
-    _callback: native::WGPUErrorCallback,
-    _userdata: *mut ::std::os::raw::c_void,
-) -> bool {
-    unimplemented!();
-}
-
-#[no_mangle]
-pub extern "C" fn wgpuDevicePushErrorScope(
-    _device: native::WGPUDevice,
-    _filter: native::WGPUErrorFilter,
-) {
-    unimplemented!();
-}
-
-#[no_mangle]
 pub extern "C" fn wgpuDeviceSetLabel(
     _device: native::WGPUDevice,
     _label: *const ::std::os::raw::c_char,
@@ -134,11 +107,6 @@ pub extern "C" fn wgpuPipelineLayoutSetLabel(
     _pipeline_layout: native::WGPUPipelineLayout,
     _label: *const ::std::os::raw::c_char,
 ) {
-    unimplemented!();
-}
-
-#[no_mangle]
-pub extern "C" fn wgpuQuerySetDestroy(_query_set: native::WGPUQuerySet) {
     unimplemented!();
 }
 
@@ -161,17 +129,16 @@ pub extern "C" fn wgpuQuerySetSetLabel(
 }
 
 #[no_mangle]
-pub extern "C" fn wgpuQueueOnSubmittedWorkDone(
+pub extern "C" fn wgpuQueueSetLabel(
     _queue: native::WGPUQueue,
-    _callback: native::WGPUQueueWorkDoneCallback,
-    _userdata: *mut ::std::os::raw::c_void,
+    _label: *const ::std::os::raw::c_char,
 ) {
     unimplemented!();
 }
 
 #[no_mangle]
-pub extern "C" fn wgpuQueueSetLabel(
-    _queue: native::WGPUQueue,
+pub extern "C" fn wgpuRenderBundleSetLabel(
+    _render_bundle: native::WGPURenderBundle,
     _label: *const ::std::os::raw::c_char,
 ) {
     unimplemented!();

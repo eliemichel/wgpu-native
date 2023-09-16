@@ -24,16 +24,6 @@ static void handle_request_device(WGPURequestDeviceStatus status,
   UNUSED(message)
   *(WGPUDevice *)userdata = device;
 }
-static void handle_device_lost(WGPUDeviceLostReason reason, char const *message,
-                               void *userdata) {
-  UNUSED(userdata)
-  printf(LOG_PREFIX " device_lost reason=%#.8x message=%s\n", reason, message);
-}
-static void handle_uncaptured_error(WGPUErrorType type, char const *message,
-                                    void *userdata) {
-  UNUSED(userdata)
-  printf(LOG_PREFIX " uncaptured_error type=%#.8x message=%s\n", type, message);
-}
 static void handle_buffer_map(WGPUBufferMapAsyncStatus status, void *userdata) {
   UNUSED(userdata)
   printf(LOG_PREFIX " buffer_map status=%#.8x\n", status);
@@ -70,9 +60,13 @@ int main(int argc, char *argv[]) {
   WGPUInstance instance = NULL;
   WGPUAdapter adapter = NULL;
   WGPUDevice device = NULL;
+  WGPUQueue queue = NULL;
   WGPUBuffer output_buffer = NULL;
   WGPUTexture texture = NULL;
   WGPUTextureView texture_view = NULL;
+  WGPUCommandEncoder command_encoder = NULL;
+  WGPURenderPassEncoder render_pass_encoder = NULL;
+  WGPUCommandBuffer command_buffer = NULL;
   uint8_t *buf = NULL;
   int ret = EXIT_SUCCESS;
 
@@ -101,11 +95,8 @@ int main(int argc, char *argv[]) {
   wgpuAdapterRequestDevice(adapter, NULL, handle_request_device,
                            (void *)&device);
   ASSERT_CHECK(device);
-  WGPUQueue queue = wgpuDeviceGetQueue(device);
+  queue = wgpuDeviceGetQueue(device);
   ASSERT_CHECK(queue);
-
-  wgpuDeviceSetUncapturedErrorCallback(device, handle_uncaptured_error, NULL);
-  wgpuDeviceSetDeviceLostCallback(device, handle_device_lost, NULL);
 
   BufferDimensions buffer_dimensions = {0};
   buffer_dimensions_init(&buffer_dimensions, width, height);
@@ -144,13 +135,13 @@ int main(int argc, char *argv[]) {
   texture_view = wgpuTextureCreateView(texture, NULL);
   ASSERT_CHECK(texture_view);
 
-  WGPUCommandEncoder command_encoder = wgpuDeviceCreateCommandEncoder(
+  command_encoder = wgpuDeviceCreateCommandEncoder(
       device, &(const WGPUCommandEncoderDescriptor){
                   .label = "command_encoder",
               });
   ASSERT_CHECK(command_encoder);
 
-  WGPURenderPassEncoder render_pass_encoder = wgpuCommandEncoderBeginRenderPass(
+  render_pass_encoder = wgpuCommandEncoderBeginRenderPass(
       command_encoder, &(const WGPURenderPassDescriptor){
                            .label = "rende_pass_encoder",
                            .colorAttachmentCount = 1,
@@ -193,7 +184,7 @@ int main(int argc, char *argv[]) {
       },
       &texture_extent);
 
-  WGPUCommandBuffer command_buffer = wgpuCommandEncoderFinish(
+  command_buffer = wgpuCommandEncoderFinish(
       command_encoder, &(const WGPUCommandBufferDescriptor){
                            .label = "command_buffer",
                        });
@@ -218,18 +209,26 @@ cleanup_and_exit:
     // mapped buf is unusable after wgpuBufferUnmap()
     buf = NULL;
   }
+  if (command_buffer)
+    wgpuCommandBufferRelease(command_buffer);
+  if (render_pass_encoder)
+    wgpuRenderPassEncoderRelease(render_pass_encoder);
+  if (command_encoder)
+    wgpuCommandEncoderRelease(command_encoder);
   if (texture_view)
-    wgpuTextureViewDrop(texture_view);
+    wgpuTextureViewRelease(texture_view);
   if (texture)
-    wgpuTextureDrop(texture);
+    wgpuTextureRelease(texture);
   if (output_buffer)
-    wgpuBufferDrop(output_buffer);
+    wgpuBufferRelease(output_buffer);
+  if (queue)
+    wgpuQueueRelease(queue);
   if (device)
-    wgpuDeviceDrop(device);
+    wgpuDeviceRelease(device);
   if (adapter)
-    wgpuAdapterDrop(adapter);
+    wgpuAdapterRelease(adapter);
   if (instance)
-    wgpuInstanceDrop(instance);
+    wgpuInstanceRelease(instance);
 
   return ret;
 }
