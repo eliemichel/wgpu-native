@@ -4189,7 +4189,8 @@ pub unsafe extern "C" fn wgpuDeviceCreateShaderModuleSpirV(
         descriptor.source,
         descriptor.sourceSize as usize,
     ));
-    let (shader_module_id, error) = gfx_select!(device_id => context.device_create_shader_module_spirv(device_id, &desc, source, None));
+    let (shader_module_id, error) =
+        context.device_create_shader_module_spirv(device_id, &desc, source, None);
     if let Some(cause) = error {
         handle_error(
             error_sink,
@@ -4240,9 +4241,13 @@ pub unsafe extern "C" fn wgpuComputePassEncoderSetPushConstants(
     data: *const u8,
 ) {
     let pass = pass.as_ref().expect("invalid compute pass");
-    let encoder = pass.encoder.as_mut().unwrap();
+    let encoder = pass.encoder.as_mut().expect("invalid compute pass encoder");
 
-    match encoder.set_push_constants(&pass.context, offset, make_slice(data, size_bytes as usize)) {
+    match pass.context.compute_pass_set_push_constants(
+        encoder,
+        offset,
+        make_slice(data, size_bytes as usize),
+    ) {
         Ok(()) => (),
         Err(cause) => handle_error(
             &pass.error_sink,
@@ -4467,9 +4472,12 @@ pub unsafe extern "C" fn wgpuComputePassEncoderWriteTimestamp(
 ) {
     let pass = pass.as_ref().expect("invalid compute pass");
     let query_set_id = query_set.as_ref().expect("invalid query set").id;
-    let encoder = pass.encoder.as_mut().unwrap();
+    let encoder = pass.encoder.as_mut().expect("invalid compute pass encoder");
 
-    match encoder.write_timestamp(&pass.context, query_set_id, query_index) {
+    match pass
+        .context
+        .compute_pass_write_timestamp(encoder, query_set_id, query_index)
+    {
         Ok(()) => (),
         Err(cause) => handle_error(
             &pass.error_sink,
@@ -4488,9 +4496,12 @@ pub unsafe extern "C" fn wgpuRenderPassEncoderWriteTimestamp(
 ) {
     let pass = pass.as_ref().expect("invalid render pass");
     let query_set_id = query_set.as_ref().expect("invalid query set").id;
-    let encoder = pass.encoder.as_mut().unwrap();
+    let encoder = pass.encoder.as_mut().expect("invalid compute pass encoder");
 
-    match encoder.write_timestamp(&pass.context, query_set_id, query_index) {
+    match pass
+        .context
+        .render_pass_write_timestamp(encoder, query_set_id, query_index)
+    {
         Ok(()) => (),
         Err(cause) => handle_error(
             &pass.error_sink,
