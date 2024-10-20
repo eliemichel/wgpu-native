@@ -1119,10 +1119,12 @@ pub fn features_to_native(features: wgt::Features) -> Vec<native::WGPUFeatureNam
     if features.contains(wgt::Features::TEXTURE_COMPRESSION_ASTC_HDR) {
         temp.push(native::WGPUNativeFeature_TextureCompressionAstcHdr);
     }
-    // TODO: requires wgpu.h api change
-    // if features.contains(wgt::Features::TIMESTAMP_QUERY_INSIDE_PASSES) {
-    //     temp.push(native::WGPUNativeFeature_TimestampQueryInsidePasses);
-    // }
+    if features.contains(wgt::Features::TIMESTAMP_QUERY_INSIDE_PASSES) {
+        temp.push(native::WGPUNativeFeature_TimestampQueryInsidePasses);
+    }
+    if features.contains(wgt::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS) {
+        temp.push(native::WGPUNativeFeature_TimestampQueryInsideEncoders);
+    }
     if features.contains(wgt::Features::MAPPABLE_PRIMARY_BUFFERS) {
         temp.push(native::WGPUNativeFeature_MappablePrimaryBuffers);
     }
@@ -1153,9 +1155,9 @@ pub fn features_to_native(features: wgt::Features) -> Vec<native::WGPUFeatureNam
     // if features.contains(wgt::Features::CLEAR_TEXTURE) {
     //     temp.push(native::WGPUNativeFeature_ClearTexture);
     // }
-    // if features.contains(wgt::Features::SPIRV_SHADER_PASSTHROUGH) {
-    //     temp.push(native::WGPUNativeFeature_SpirvShaderPassthrough);
-    // }
+    if features.contains(wgt::Features::SPIRV_SHADER_PASSTHROUGH) {
+        temp.push(native::WGPUNativeFeature_SpirvShaderPassthrough);
+    }
     // if features.contains(wgt::Features::MULTIVIEW) {
     //     temp.push(native::WGPUNativeFeature_Multiview);
     // }
@@ -1182,6 +1184,15 @@ pub fn features_to_native(features: wgt::Features) -> Vec<native::WGPUFeatureNam
     }
     if features.contains(wgt::Features::SHADER_EARLY_DEPTH_TEST) {
         temp.push(native::WGPUNativeFeature_ShaderEarlyDepthTest);
+    }
+    if features.contains(wgt::Features::SUBGROUP) {
+        temp.push(native::WGPUNativeFeature_Subgroup);
+    }
+    if features.contains(wgt::Features::SUBGROUP_VERTEX) {
+        temp.push(native::WGPUNativeFeature_SubgroupVertex);
+    }
+    if features.contains(wgt::Features::SUBGROUP_BARRIER) {
+        temp.push(native::WGPUNativeFeature_SubgroupBarrier);
     }
 
     temp
@@ -1218,8 +1229,8 @@ pub fn map_feature(feature: native::WGPUFeatureName) -> Option<wgt::Features> {
         native::WGPUNativeFeature_PartiallyBoundBindingArray => Some(Features::PARTIALLY_BOUND_BINDING_ARRAY),
         native::WGPUNativeFeature_TextureFormat16bitNorm => Some(Features::TEXTURE_FORMAT_16BIT_NORM),
         native::WGPUNativeFeature_TextureCompressionAstcHdr => Some(Features::TEXTURE_COMPRESSION_ASTC_HDR),
-        // TODO: requires wgpu.h api change
-        // native::WGPUNativeFeature_TimestampQueryInsidePasses => Some(Features::TIMESTAMP_QUERY_INSIDE_PASSES),
+        native::WGPUNativeFeature_TimestampQueryInsidePasses => Some(Features::TIMESTAMP_QUERY_INSIDE_PASSES),
+        native::WGPUNativeFeature_TimestampQueryInsideEncoders => Some(Features::TIMESTAMP_QUERY_INSIDE_ENCODERS),
         native::WGPUNativeFeature_MappablePrimaryBuffers => Some(Features::MAPPABLE_PRIMARY_BUFFERS),
         native::WGPUNativeFeature_BufferBindingArray => Some(Features::BUFFER_BINDING_ARRAY),
         native::WGPUNativeFeature_UniformBufferAndStorageTextureArrayNonUniformIndexing => Some(Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
@@ -1230,7 +1241,7 @@ pub fn map_feature(feature: native::WGPUFeatureName) -> Option<wgt::Features> {
         // native::WGPUNativeFeature_PolygonModePoint => Some(Features::POLYGON_MODE_POINT),
         // native::WGPUNativeFeature_ConservativeRasterization => Some(Features::CONSERVATIVE_RASTERIZATION),
         // native::WGPUNativeFeature_ClearTexture => Some(Features::CLEAR_TEXTURE),
-        // native::WGPUNativeFeature_SpirvShaderPassthrough => Some(Features::SPIRV_SHADER_PASSTHROUGH),
+        native::WGPUNativeFeature_SpirvShaderPassthrough => Some(Features::SPIRV_SHADER_PASSTHROUGH),
         // native::WGPUNativeFeature_Multiview => Some(Features::MULTIVIEW),
         native::WGPUNativeFeature_VertexAttribute64bit => Some(Features::VERTEX_ATTRIBUTE_64BIT),
         native::WGPUNativeFeature_TextureFormatNv12 => Some(Features::TEXTURE_FORMAT_NV12),
@@ -1239,6 +1250,9 @@ pub fn map_feature(feature: native::WGPUFeatureName) -> Option<wgt::Features> {
         native::WGPUNativeFeature_ShaderF64 => Some(Features::SHADER_F64),
         native::WGPUNativeFeature_ShaderPrimitiveIndex => Some(Features::SHADER_PRIMITIVE_INDEX),
         native::WGPUNativeFeature_ShaderEarlyDepthTest => Some(Features::SHADER_EARLY_DEPTH_TEST),
+        native::WGPUNativeFeature_Subgroup => Some(Features::SUBGROUP),
+        native::WGPUNativeFeature_SubgroupVertex => Some(Features::SUBGROUP_VERTEX),
+        native::WGPUNativeFeature_SubgroupBarrier => Some(Features::SUBGROUP_BARRIER),
         // fallback, probably not available in wgpu-core
         _ => None,
     }
