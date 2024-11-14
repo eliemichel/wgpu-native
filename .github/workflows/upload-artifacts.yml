@@ -6,10 +6,12 @@ name: upload-artifacts
 env:
   CD_WORKFLOW_RUN_ID: 11812399205
   VERSION_TAG: v23.0.0-beta
-  
 
 on:
   workflow_dispatch:
+
+permissions:
+  actions: read
 
 jobs:
 
@@ -30,7 +32,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          github-token: ${{ secrets.GH_PAT }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ env.CD_WORKFLOW_RUN_ID }}
       - name: Create commit-sha file
         env:
