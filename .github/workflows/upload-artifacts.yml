@@ -20,7 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        ref: ${{ env.VERSION_TAG }}
+        with:
+          ref: ${{ env.VERSION_TAG }}
       - name: set version (which gets used as release name)
         run: |
           echo "WGPU_NATIVE_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
