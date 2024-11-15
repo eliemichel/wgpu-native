@@ -4,8 +4,8 @@
 name: upload-artifacts
 
 env:
-  CD_WORKFLOW_RUN_ID: 11812399205
-  WGPU_NATIVE_VERSION: v23.0.0-beta
+  CD_WORKFLOW_RUN_ID: 11858463701
+  WGPU_NATIVE_VERSION: v23.0.0-gamma
 
 on:
   workflow_dispatch:
