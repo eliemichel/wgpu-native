@@ -53,7 +53,7 @@ pub unsafe extern "C" fn wgpuCommandEncoderFinish(
 
     let desc = match descriptor {
         Some(descriptor) => wgt::CommandBufferDescriptor {
-            label: OwnedLabel::new(descriptor.label).into_cow(),
+            label: OwnedLabel::from_string_view(descriptor.label).into_cow(),
         },
         None => wgt::CommandBufferDescriptor::default(),
     };
@@ -176,7 +176,7 @@ pub unsafe extern "C" fn wgpuCommandEncoderBeginComputePass(
 
     let desc = match descriptor {
         Some(descriptor) => wgc::command::ComputePassDescriptor {
-            label: OwnedLabel::new(descriptor.label).into_cow(),
+            label: OwnedLabel::from_string_view(descriptor.label).into_cow(),
         },
         None => wgc::command::ComputePassDescriptor::default(),
     };
@@ -217,7 +217,7 @@ pub unsafe extern "C" fn wgpuCommandEncoderBeginRenderPass(
         }
     });
     let desc = wgc::command::RenderPassDescriptor {
-        label: OwnedLabel::new(descriptor.label).into_cow(),
+        label: OwnedLabel::from_string_view(descriptor.label).into_cow(),
         color_attachments: Cow::Owned(
             make_slice(
                 descriptor.colorAttachments,
@@ -872,7 +872,7 @@ pub unsafe extern "C" fn wgpuRenderBundleEncoderFinish(
 
     let desc = match descriptor {
         Some(descriptor) => wgt::RenderBundleDescriptor {
-            label: OwnedLabel::new(descriptor.label).into_cow(),
+            label: OwnedLabel::from_string_view(descriptor.label).into_cow(),
         },
         None => wgt::RenderBundleDescriptor::default(),
     };

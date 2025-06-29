@@ -196,6 +196,7 @@ map_enum!(
 pub const WGPU_WHOLE_SIZE: ::std::os::raw::c_ulonglong = native::WGPU_WHOLE_SIZE as _;
 pub const WGPU_LIMIT_U64_UNDEFINED: ::std::os::raw::c_ulonglong =
     native::WGPU_LIMIT_U64_UNDEFINED as _;
+pub const WGPU_STRLEN: ::std::os::raw::c_ulonglong = native::WGPU_STRLEN as _;
 // it's SIZE_MAX in headers but it's not available in some compilers
 pub const WGPU_WHOLE_MAP_SIZE: usize = usize::MAX;
 
@@ -247,10 +248,10 @@ pub fn map_instance_descriptor(
             native::WGPUDx12Compiler_Fxc => wgt::Dx12Compiler::Fxc,
             native::WGPUDx12Compiler_Dxc => wgt::Dx12Compiler::Dxc {
                 dxil_path: unsafe { extras.dxilPath.as_ref() }
-                    .and_then(|v| OwnedLabel::new(v).0)
+                    .and_then(|v| OwnedLabel::from_string_view(v).0)
                     .map(|v| Path::new(&v).to_path_buf()),
                 dxc_path: unsafe { extras.dxcPath.as_ref() }
-                    .and_then(|v| OwnedLabel::new(v).0)
+                    .and_then(|v| OwnedLabel::from_string_view(v).0)
                     .map(|v| Path::new(&v).to_path_buf()),
             },
             _ => wgt::Dx12Compiler::default(),
@@ -292,13 +293,13 @@ pub fn map_device_descriptor<'a>(
 
     (
         wgt::DeviceDescriptor {
-            label: OwnedLabel::new(des.label).into_cow(),
+            label: OwnedLabel::from_string_view(des.label).into_cow(),
             features: map_features(unsafe {
                 make_slice(des.requiredFeatures, des.requiredFeaturesCount as usize)
             }),
             limits,
         },
-        extras.and_then(|extras| OwnedLabel::new(extras.tracePath).into_inner()),
+        extras.and_then(|extras| OwnedLabel::from_string_view(extras.tracePath).into_inner()),
     )
 }
 
@@ -333,7 +334,7 @@ pub unsafe fn map_pipeline_layout_descriptor<'a>(
     });
 
     return wgc::binding_model::PipelineLayoutDescriptor {
-        label: OwnedLabel::new(des.label).into_cow(),
+        label: OwnedLabel::from_string_view(des.label).into_cow(),
         bind_group_layouts: Cow::from(bind_group_layouts),
         push_constant_ranges: Cow::from(push_constant_ranges),
     };
@@ -1040,7 +1041,7 @@ pub fn map_query_set_descriptor<'a>(
     desc: &native::WGPUQuerySetDescriptor,
 ) -> wgt::QuerySetDescriptor<wgc::Label<'a>> {
     wgt::QuerySetDescriptor {
-        label: OwnedLabel::new(desc.label).into_cow(),
+        label: OwnedLabel::from_string_view(desc.label).into_cow(),
         count: desc.count,
         ty: match desc.type_ {
             native::WGPUQueryType_Occlusion => wgt::QueryType::Occlusion,

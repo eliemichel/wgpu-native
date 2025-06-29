@@ -1,4 +1,4 @@
-use crate::conv::map_instance_descriptor;
+use crate::conv::{map_instance_descriptor, WGPU_LIMIT_U64_UNDEFINED};
 use native::{Handle, IntoHandle, IntoHandleWithContext, UnwrapId};
 use std::{borrow::Cow, collections::HashMap, ffi::CString, sync::Arc, sync::Mutex};
 use wgc::id;
@@ -237,6 +237,26 @@ impl OwnedLabel {
         } else {
             Some(
                 unsafe { std::ffi::CStr::from_ptr(ptr) }
+                    .to_string_lossy()
+                    .to_string(),
+            )
+        })
+    }
+    fn from_string_view(string_view: native::WGPUStringView) -> Self {
+        Self(if string_view.data.is_null() {
+            None
+        } else if (string_view.length == WGPU_STRLEN) {
+            Some(
+                unsafe { std::ffi::CStr::from_ptr(string_view.data) }
+                    .to_string_lossy()
+                    .to_string(),
+            )
+        } else {
+            Some(
+                unsafe {
+                    let bytes = std::slice::from_raw_parts(string_view.data.cast(), string_view.length);
+                    std::ffi::CStr::from_bytes_with_nul_unchecked(bytes)
+                }
                     .to_string_lossy()
                     .to_string(),
             )
