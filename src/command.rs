@@ -119,16 +119,16 @@ pub unsafe extern "C" fn wgpuCommandEncoderCopyBufferToBuffer(
 #[no_mangle]
 pub unsafe extern "C" fn wgpuCommandEncoderCopyTextureToTexture(
     command_encoder: native::WGPUCommandEncoder,
-    source: Option<&native::WGPUImageCopyTexture>,
-    destination: Option<&native::WGPUImageCopyTexture>,
+    source: Option<&native::WGPUTexelCopyTextureInfo>,
+    destination: Option<&native::WGPUTexelCopyTextureInfo>,
     copy_size: Option<&native::WGPUExtent3D>,
 ) {
     let (command_encoder, context) = command_encoder.unwrap_handle();
 
     gfx_select!(command_encoder => context.command_encoder_copy_texture_to_texture(
         command_encoder,
-        &conv::map_image_copy_texture(source.expect("invalid source")),
-        &conv::map_image_copy_texture(destination.expect("invalid destination")),
+        &conv::map_texel_copy_texture_info(source.expect("invalid source")),
+        &conv::map_texel_copy_texture_info(destination.expect("invalid destination")),
         &conv::map_extent3d(copy_size.expect("invalid copy size"))))
     .expect("Unable to copy texture to texture")
 }
@@ -136,16 +136,16 @@ pub unsafe extern "C" fn wgpuCommandEncoderCopyTextureToTexture(
 #[no_mangle]
 pub unsafe extern "C" fn wgpuCommandEncoderCopyTextureToBuffer(
     command_encoder: native::WGPUCommandEncoder,
-    source: Option<&native::WGPUImageCopyTexture>,
-    destination: Option<&native::WGPUImageCopyBuffer>,
+    source: Option<&native::WGPUTexelCopyTextureInfo>,
+    destination: Option<&native::WGPUTexelCopyBufferInfo>,
     copy_size: Option<&native::WGPUExtent3D>,
 ) {
     let (command_encoder, context) = command_encoder.unwrap_handle();
 
     gfx_select!(command_encoder => context.command_encoder_copy_texture_to_buffer(
         command_encoder,
-        &conv::map_image_copy_texture(source.expect("invalid source")),
-        &conv::map_image_copy_buffer(destination.expect("invalid destination")),
+        &conv::map_texel_copy_texture_info(source.expect("invalid source")),
+        &conv::map_texel_copy_buffer_info(destination.expect("invalid destination")),
         &conv::map_extent3d(copy_size.expect("invalid copy size"))))
     .expect("Unable to copy texture to buffer")
 }
@@ -153,16 +153,16 @@ pub unsafe extern "C" fn wgpuCommandEncoderCopyTextureToBuffer(
 #[no_mangle]
 pub unsafe extern "C" fn wgpuCommandEncoderCopyBufferToTexture(
     command_encoder: native::WGPUCommandEncoder,
-    source: Option<&native::WGPUImageCopyBuffer>,
-    destination: Option<&native::WGPUImageCopyTexture>,
+    source: Option<&native::WGPUTexelCopyBufferInfo>,
+    destination: Option<&native::WGPUTexelCopyTextureInfo>,
     copy_size: Option<&native::WGPUExtent3D>,
 ) {
     let (command_encoder, context) = command_encoder.unwrap_handle();
 
     gfx_select!(command_encoder => context.command_encoder_copy_buffer_to_texture(
         command_encoder,
-        &conv::map_image_copy_buffer(source.expect("invalid source")),
-        &conv::map_image_copy_texture(destination.expect("invalid destination")),
+        &conv::map_texel_copy_buffer_info(source.expect("invalid source")),
+        &conv::map_texel_copy_texture_info(destination.expect("invalid destination")),
         &conv::map_extent3d(copy_size.expect("invalid copy size"))))
     .expect("Unable to copy buffer to texture")
 }
@@ -206,13 +206,13 @@ pub unsafe extern "C" fn wgpuCommandEncoderBeginRenderPass(
                 load_op: conv::map_load_op(desc.depthLoadOp),
                 store_op: conv::map_store_op(desc.depthStoreOp),
                 clear_value: desc.depthClearValue,
-                read_only: desc.depthReadOnly,
+                read_only: conv::map_bool(desc.depthReadOnly),
             },
             stencil: wgc::command::PassChannel {
                 load_op: conv::map_load_op(desc.stencilLoadOp),
                 store_op: conv::map_store_op(desc.stencilStoreOp),
                 clear_value: desc.stencilClearValue,
-                read_only: desc.stencilReadOnly,
+                read_only: conv::map_bool(desc.stencilReadOnly),
             },
         }
     });
@@ -661,7 +661,7 @@ pub unsafe extern "C" fn wgpuRenderPassEncoderSetVertexBuffer(
 #[no_mangle]
 pub unsafe extern "C" fn wgpuRenderPassEncoderSetPushConstants(
     pass: native::WGPURenderPassEncoder,
-    stages: native::WGPUShaderStageFlags,
+    stages: native::WGPUShaderStage,
     offset: u32,
     size_bytes: u32,
     size: *const u8,
@@ -669,7 +669,7 @@ pub unsafe extern "C" fn wgpuRenderPassEncoderSetPushConstants(
     let (pass, _) = unwrap_render_pass_encoder(pass);
     render_ffi::wgpu_render_pass_set_push_constants(
         pass,
-        wgt::ShaderStages::from_bits(stages).expect("Invalid shader stage"),
+        wgt::ShaderStages::from_bits(stages as u32).expect("Invalid shader stage"),
         offset,
         size_bytes,
         size,

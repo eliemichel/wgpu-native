@@ -1,4 +1,4 @@
-use crate::conv::{map_instance_descriptor, WGPU_LIMIT_U64_UNDEFINED};
+use crate::conv::{map_instance_descriptor, WGPU_LIMIT_U64_UNDEFINED, WGPU_STRLEN};
 use native::{Handle, IntoHandle, IntoHandleWithContext, UnwrapId};
 use std::{borrow::Cow, collections::HashMap, ffi::CString, sync::Arc, sync::Mutex};
 use wgc::id;
@@ -225,6 +225,7 @@ pub mod native {
     implement_id_handle!(WGPUSurfaceImpl, SurfaceId);
 
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+    include!(concat!(env!("OUT_DIR"), "/extra_bindings.rs"));
 }
 
 pub type Label<'a> = Option<Cow<'a, str>>;

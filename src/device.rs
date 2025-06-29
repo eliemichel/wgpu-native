@@ -355,7 +355,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateShaderModule(
     let (device, context) = device.unwrap_handle();
     let descriptor = descriptor.expect("invalid descriptor");
 
-    let label = OwnedLabel::new(descriptor.label);
+    let label = OwnedLabel::from_string_view(descriptor.label);
     let source = follow_chain!(
         map_shader_module(descriptor,
         WGPUSType_ShaderModuleSPIRVDescriptor => native::WGPUShaderModuleSPIRVDescriptor,
@@ -385,7 +385,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateBuffer(
     let (device, context) = device.unwrap_handle();
     let descriptor = descriptor.expect("invalid descriptor");
 
-    let label = OwnedLabel::new(descriptor.label);
+    let label = OwnedLabel::from_string_view(descriptor.label);
     let desc = wgt::BufferDescriptor {
         label: label.as_cow(),
         size: descriptor.size,
@@ -522,7 +522,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateBindGroupLayout(
             count: None, // TODO - What is this?
         });
     }
-    let label = OwnedLabel::new(descriptor.label);
+    let label = OwnedLabel::from_string_view(descriptor.label);
     let desc = wgc::binding_model::BindGroupLayoutDescriptor {
         label: label.as_cow(),
         entries: Cow::Borrowed(&entries),
@@ -578,7 +578,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateBindGroup(
         entries.push(wgc_entry);
     }
 
-    let label = OwnedLabel::new(descriptor.label);
+    let label = OwnedLabel::from_string_view(descriptor.label);
     let desc = wgc::binding_model::BindGroupDescriptor {
         label: label.as_cow(),
         layout: descriptor
@@ -633,12 +633,12 @@ pub unsafe extern "C" fn wgpuDeviceCreateComputePipeline(
             .module
             .as_option()
             .expect("invalid shader module for compute pipeline descriptor"),
-        entry_point: OwnedLabel::new(descriptor.compute.entryPoint)
+        entry_point: OwnedLabel::from_string_view(descriptor.compute.entryPoint)
             .into_cow()
             .expect("invalid entry point for compute pipeline descriptor"),
     };
     let desc = wgc::pipeline::ComputePipelineDescriptor {
-        label: OwnedLabel::new(descriptor.label).into_cow(),
+        label: OwnedLabel::from_string_view(descriptor.label).into_cow(),
         layout: descriptor.layout.as_option(),
         stage,
     };
@@ -669,7 +669,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateCommandEncoder(
 
     let desc = match descriptor {
         Some(descriptor) => wgt::CommandEncoderDescriptor {
-            label: OwnedLabel::new(descriptor.label).into_cow(),
+            label: OwnedLabel::from_string_view(descriptor.label).into_cow(),
         },
         None => wgt::CommandEncoderDescriptor::default(),
     };
@@ -877,7 +877,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateRenderPipeline(
     let descriptor = descriptor.expect("invalid descriptor");
 
     let desc = wgc::pipeline::RenderPipelineDescriptor {
-        label: OwnedLabel::new(descriptor.label).into_cow(),
+        label: OwnedLabel::from_string_view(descriptor.label).into_cow(),
         layout: descriptor.layout.as_option(),
         vertex: wgc::pipeline::VertexState {
             stage: wgc::pipeline::ProgrammableStageDescriptor {
@@ -886,7 +886,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateRenderPipeline(
                     .module
                     .as_option()
                     .expect("invalid vertex shader module for render pipeline descriptor"),
-                entry_point: OwnedLabel::new(descriptor.vertex.entryPoint)
+                entry_point: OwnedLabel::from_string_view(descriptor.vertex.entryPoint)
                     .into_cow()
                     .expect("Entry point not provided"),
             },
@@ -969,7 +969,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateRenderPipeline(
                         .module
                         .as_option()
                         .expect("invalid fragment shader module for render pipeline descriptor"),
-                    entry_point: OwnedLabel::new(fragment.entryPoint)
+                    entry_point: OwnedLabel::from_string_view(fragment.entryPoint)
                         .into_cow()
                         .expect("Entry point not provided"),
                 },
@@ -1123,7 +1123,7 @@ pub unsafe extern "C" fn wgpuTextureCreateView(
 
     let desc = match descriptor {
         Some(descriptor) => wgc::resource::TextureViewDescriptor {
-            label: OwnedLabel::new(descriptor.label).into_cow(),
+            label: OwnedLabel::from_string_view(descriptor.label).into_cow(),
             format: conv::map_texture_format(descriptor.format),
             dimension: conv::map_texture_view_dimension(descriptor.dimension),
             range: wgt::ImageSubresourceRange {
@@ -1165,7 +1165,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateTexture(
     let descriptor = descriptor.expect("invalid descriptor");
 
     let desc = wgt::TextureDescriptor {
-        label: OwnedLabel::new(descriptor.label).into_cow(),
+        label: OwnedLabel::from_string_view(descriptor.label).into_cow(),
         size: conv::map_extent3d(&descriptor.size),
         mip_level_count: descriptor.mipLevelCount,
         sample_count: descriptor.sampleCount,
@@ -1206,7 +1206,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateSampler(
 
     let desc = match descriptor {
         Some(descriptor) => wgc::resource::SamplerDescriptor {
-            label: OwnedLabel::new(descriptor.label).into_cow(),
+            label: OwnedLabel::from_string_view(descriptor.label).into_cow(),
             address_modes: [
                 conv::map_address_mode(descriptor.addressModeU),
                 conv::map_address_mode(descriptor.addressModeV),
@@ -1246,7 +1246,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateRenderBundleEncoder(
     let descriptor = descriptor.expect("invalid descriptor");
 
     let desc = wgc::command::RenderBundleEncoderDescriptor {
-        label: OwnedLabel::new(descriptor.label).into_cow(),
+        label: OwnedLabel::from_string_view(descriptor.label).into_cow(),
         color_formats: unsafe {
             make_slice(
                 descriptor.colorFormats,
@@ -1259,8 +1259,8 @@ pub unsafe extern "C" fn wgpuDeviceCreateRenderBundleEncoder(
         depth_stencil: conv::map_texture_format(descriptor.depthStencilFormat).map(|format| {
             wgt::RenderBundleDepthStencil {
                 format,
-                depth_read_only: descriptor.depthReadOnly,
-                stencil_read_only: descriptor.stencilReadOnly,
+                depth_read_only: conv::map_bool(descriptor.depthReadOnly),
+                stencil_read_only: conv::map_bool(descriptor.stencilReadOnly),
             }
         }),
         sample_count: descriptor.sampleCount,

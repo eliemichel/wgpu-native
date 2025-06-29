@@ -200,6 +200,10 @@ pub const WGPU_STRLEN: ::std::os::raw::c_ulonglong = native::WGPU_STRLEN as _;
 // it's SIZE_MAX in headers but it's not available in some compilers
 pub const WGPU_WHOLE_MAP_SIZE: usize = usize::MAX;
 
+pub fn map_bool(native: native::WGPUBool) -> bool {
+    native != 0
+}
+
 pub fn map_extent3d(native: &native::WGPUExtent3D) -> wgt::Extent3d {
     wgt::Extent3d {
         width: native.width,
@@ -248,10 +252,10 @@ pub fn map_instance_descriptor(
             native::WGPUDx12Compiler_Fxc => wgt::Dx12Compiler::Fxc,
             native::WGPUDx12Compiler_Dxc => wgt::Dx12Compiler::Dxc {
                 dxil_path: unsafe { extras.dxilPath.as_ref() }
-                    .and_then(|v| OwnedLabel::from_string_view(v).0)
+                    .and_then(|v| OwnedLabel::new(v).0)
                     .map(|v| Path::new(&v).to_path_buf()),
                 dxc_path: unsafe { extras.dxcPath.as_ref() }
-                    .and_then(|v| OwnedLabel::from_string_view(v).0)
+                    .and_then(|v| OwnedLabel::new(v).0)
                     .map(|v| Path::new(&v).to_path_buf()),
             },
             _ => wgt::Dx12Compiler::default(),
@@ -283,9 +287,9 @@ pub fn map_device_descriptor<'a>(
 ) -> (wgt::DeviceDescriptor<Label<'a>>, Option<String>) {
     let limits = unsafe { des.requiredLimits.as_ref() }.map_or(
         wgt::Limits::default(),
-        |required_limits| unsafe {
+        |limits| unsafe {
             follow_chain!(
-                map_required_limits(required_limits,
+                map_limits(limits,
                 WGPUSType_RequiredLimitsExtras => native::WGPURequiredLimitsExtras)
             )
         },
@@ -295,11 +299,11 @@ pub fn map_device_descriptor<'a>(
         wgt::DeviceDescriptor {
             label: OwnedLabel::from_string_view(des.label).into_cow(),
             features: map_features(unsafe {
-                make_slice(des.requiredFeatures, des.requiredFeaturesCount as usize)
+                make_slice(des.requiredFeatures, des.requiredFeatureCount as usize)
             }),
             limits,
         },
-        extras.and_then(|extras| OwnedLabel::from_string_view(extras.tracePath).into_inner()),
+        extras.and_then(|extras| OwnedLabel::new(extras.tracePath).into_inner()),
     )
 }
 
@@ -326,7 +330,7 @@ pub unsafe fn map_pipeline_layout_descriptor<'a>(
         }
         .iter()
         .map(|range| wgt::PushConstantRange {
-            stages: wgt::ShaderStages::from_bits(range.stages)
+            stages: wgt::ShaderStages::from_bits(range.stages as u32)
                 .expect("invalid shader stage for push constant range"),
             range: range.start..range.end,
         })
@@ -340,11 +344,10 @@ pub unsafe fn map_pipeline_layout_descriptor<'a>(
     };
 }
 
-pub fn map_required_limits(
-    required_limits: &native::WGPURequiredLimits,
+pub fn map_limits(
+    limits: &native::WGPULimits,
     extras: Option<&native::WGPURequiredLimitsExtras>,
 ) -> wgt::Limits {
-    let limits = required_limits.limits;
     let mut wgt_limits = wgt::Limits::default();
     if limits.maxTextureDimension1D != native::WGPU_LIMIT_U32_UNDEFINED {
         wgt_limits.max_texture_dimension_1d = limits.maxTextureDimension1D;
@@ -411,9 +414,9 @@ pub fn map_required_limits(
     if limits.maxVertexBufferArrayStride != native::WGPU_LIMIT_U32_UNDEFINED {
         wgt_limits.max_vertex_buffer_array_stride = limits.maxVertexBufferArrayStride;
     }
-    if limits.maxInterStageShaderComponents != native::WGPU_LIMIT_U32_UNDEFINED {
-        wgt_limits.max_inter_stage_shader_components = limits.maxInterStageShaderComponents;
-    }
+    //if limits.maxInterStageShaderComponents != native::WGPU_LIMIT_U32_UNDEFINED {
+    //    wgt_limits.max_inter_stage_shader_components = limits.maxInterStageShaderComponents;
+    //}
     //if limits.maxInterStageShaderVariables != native::WGPU_LIMIT_U32_UNDEFINED {
     //    wgt_limits.max_inter_stage_shader_variables = limits.maxIntmaxInterStageShaderVariableserStageShaderComponents;
     //}  not yet in wgt
@@ -502,8 +505,8 @@ pub fn map_shader_module<'a>(
     panic!("Shader not provided.");
 }
 
-pub fn map_image_copy_texture(
-    native: &native::WGPUImageCopyTexture,
+pub fn map_texel_copy_texture_info(
+    native: &native::WGPUTexelCopyTextureInfo,
 ) -> wgc::command::ImageCopyTexture {
     wgt::ImageCopyTexture {
         texture: native
@@ -516,19 +519,19 @@ pub fn map_image_copy_texture(
     }
 }
 
-pub fn map_image_copy_buffer(
-    native: &native::WGPUImageCopyBuffer,
+pub fn map_texel_copy_buffer_info(
+    native: &native::WGPUTexelCopyBufferInfo,
 ) -> wgc::command::ImageCopyBuffer {
     wgt::ImageCopyBuffer {
         buffer: native
             .buffer
             .as_option()
             .expect("invalid buffer for image copy buffer"),
-        layout: map_texture_data_layout(&native.layout),
+        layout: map_texel_copy_buffer_layout(&native.layout),
     }
 }
 
-pub fn map_texture_data_layout(native: &native::WGPUTextureDataLayout) -> wgt::ImageDataLayout {
+pub fn map_texel_copy_buffer_layout(native: &native::WGPUTexelCopyBufferLayout) -> wgt::ImageDataLayout {
     wgt::ImageDataLayout {
         offset: native.offset,
         bytes_per_row: match native.bytesPerRow {
@@ -992,48 +995,9 @@ pub fn to_native_composite_alpha_mode(
     match mode {
         wgt::CompositeAlphaMode::Auto => native::WGPUCompositeAlphaMode_Auto,
         wgt::CompositeAlphaMode::Opaque => native::WGPUCompositeAlphaMode_Opaque,
-        wgt::CompositeAlphaMode::PreMultiplied => native::WGPUCompositeAlphaMode_PreMultiplied,
-        wgt::CompositeAlphaMode::PostMultiplied => native::WGPUCompositeAlphaMode_PostMultiplied,
+        wgt::CompositeAlphaMode::PreMultiplied => native::WGPUCompositeAlphaMode_Premultiplied,
+        wgt::CompositeAlphaMode::PostMultiplied => native::WGPUCompositeAlphaMode_Unpremultiplied,
         wgt::CompositeAlphaMode::Inherit => native::WGPUCompositeAlphaMode_Inherit,
-    }
-}
-
-pub fn map_swapchain_descriptor(
-    desc: &native::WGPUSwapChainDescriptor,
-    extras: Option<&native::WGPUSwapChainDescriptorExtras>,
-) -> wgt::SurfaceConfiguration<Vec<wgt::TextureFormat>> {
-    let (alpha_mode, view_formats) = match extras {
-        Some(extras) => (
-            match extras.alphaMode {
-                native::WGPUCompositeAlphaMode_Auto => wgt::CompositeAlphaMode::Auto,
-                native::WGPUCompositeAlphaMode_Opaque => wgt::CompositeAlphaMode::Opaque,
-                native::WGPUCompositeAlphaMode_PreMultiplied => {
-                    wgt::CompositeAlphaMode::PreMultiplied
-                }
-                native::WGPUCompositeAlphaMode_PostMultiplied => {
-                    wgt::CompositeAlphaMode::PostMultiplied
-                }
-                native::WGPUCompositeAlphaMode_Inherit => wgt::CompositeAlphaMode::Inherit,
-                _ => panic!("invalid alpha mode for swapchain descriptor"),
-            },
-            unsafe { make_slice(extras.viewFormats, extras.viewFormatCount) }
-                .iter()
-                .map(|f| {
-                    map_texture_format(*f).expect("invalid view format for swapchain descriptor")
-                })
-                .collect(),
-        ),
-        None => (wgt::CompositeAlphaMode::default(), Vec::new()),
-    };
-
-    wgt::SurfaceConfiguration {
-        usage: wgt::TextureUsages::from_bits(desc.usage).unwrap(),
-        format: map_texture_format(desc.format).expect("Texture format not defined"),
-        width: desc.width,
-        height: desc.height,
-        present_mode: map_present_mode(desc.presentMode),
-        alpha_mode,
-        view_formats,
     }
 }
 
