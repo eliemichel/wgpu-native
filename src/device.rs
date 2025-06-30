@@ -1,6 +1,5 @@
 use crate::conv::{
     map_adapter_options, map_device_descriptor, map_pipeline_layout_descriptor, map_shader_module,
-    map_swapchain_descriptor,
 };
 use crate::native::{
     unwrap_swap_chain_handle, Handle, IntoHandle, IntoHandleWithContext, UnwrapId,
@@ -42,7 +41,7 @@ pub unsafe extern "C" fn wgpuInstanceRequestAdapter(
                         }
                         _ => wgt::PowerPreference::default(),
                     },
-                    force_fallback_adapter: options.forceFallbackAdapter,
+                    force_fallback_adapter: conv::map_bool(options.forceFallbackAdapter),
                     compatible_surface: compatible_surface.as_ref().map(|surface| surface.id),
                 },
                 wgc::instance::AdapterInputs::Mask(
@@ -75,8 +74,9 @@ pub unsafe extern "C" fn wgpuInstanceRequestAdapter(
                     name: CString::default(),
                 }
                 .into_handle(),
-                std::ptr::null(),
+                native::WGPUStringView{ data: std::ptr::null(), length: native::WGPU_STRLEN },
                 userdata,
+                std::ptr::null_mut(),
             );
         }
         Err(err) => {
@@ -92,8 +92,9 @@ pub unsafe extern "C" fn wgpuInstanceRequestAdapter(
                     }
                 },
                 std::ptr::null_mut(),
-                message.as_ptr(),
+                native::WGPUStringView{ data: message.as_ptr(), length: native::WGPU_STRLEN },
                 userdata,
+                std::ptr::null_mut(),
             );
         }
     };
@@ -125,8 +126,9 @@ pub unsafe extern "C" fn wgpuAdapterRequestDevice(
             (callback.unwrap())(
                 native::WGPURequestDeviceStatus_Success,
                 device.into_handle_with_context(context),
-                std::ptr::null(),
+                native::WGPUStringView{ data: std::ptr::null(), length: native::WGPU_STRLEN },
                 userdata,
+                std::ptr::null_mut(),
             );
         }
         Some(err) => {
@@ -135,8 +137,9 @@ pub unsafe extern "C" fn wgpuAdapterRequestDevice(
             (callback.unwrap())(
                 native::WGPURequestDeviceStatus_Error,
                 std::ptr::null_mut(),
-                message.as_ptr(),
+                native::WGPUStringView{ data: message.as_ptr(), length: native::WGPU_STRLEN },
                 userdata,
+                std::ptr::null_mut(),
             );
         }
     }
@@ -358,9 +361,9 @@ pub unsafe extern "C" fn wgpuDeviceCreateShaderModule(
     let label = OwnedLabel::from_string_view(descriptor.label);
     let source = follow_chain!(
         map_shader_module(descriptor,
-        WGPUSType_ShaderModuleSPIRVDescriptor => native::WGPUShaderModuleSPIRVDescriptor,
-        WGPUSType_ShaderModuleWGSLDescriptor => native::WGPUShaderModuleWGSLDescriptor,
-        WGPUSType_ShaderModuleGLSLDescriptor => native::WGPUShaderModuleGLSLDescriptor)
+        WGPUSType_ShaderSourceSPIRV => native::WGPUShaderSourceSPIRV,
+        WGPUSType_ShaderSourceWGSL => native::WGPUShaderSourceWGSL,
+        WGPUSType_ShaderSourceGLSL => native::WGPUShaderSourceGLSL)
     );
 
     let desc = wgc::pipeline::ShaderModuleDescriptor {

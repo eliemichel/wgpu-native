@@ -244,24 +244,7 @@ impl OwnedLabel {
         })
     }
     fn from_string_view(string_view: native::WGPUStringView) -> Self {
-        Self(if string_view.data.is_null() {
-            None
-        } else if (string_view.length == WGPU_STRLEN) {
-            Some(
-                unsafe { std::ffi::CStr::from_ptr(string_view.data) }
-                    .to_string_lossy()
-                    .to_string(),
-            )
-        } else {
-            Some(
-                unsafe {
-                    let bytes = std::slice::from_raw_parts(string_view.data.cast(), string_view.length);
-                    std::ffi::CStr::from_bytes_with_nul_unchecked(bytes)
-                }
-                    .to_string_lossy()
-                    .to_string(),
-            )
-        })
+        Self(conv::map_string_view(&string_view).map(|s| s.to_string()))
     }
     fn into_inner(self) -> Option<String> {
         self.0

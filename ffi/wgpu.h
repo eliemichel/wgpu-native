@@ -9,7 +9,7 @@ typedef enum WGPUNativeSType {
     WGPUSType_AdapterExtras = 0x60000002,
     WGPUSType_RequiredLimitsExtras = 0x60000003,
     WGPUSType_PipelineLayoutExtras = 0x60000004,
-    WGPUSType_ShaderModuleGLSLDescriptor = 0x60000005,
+    WGPUSType_ShaderSourceGLSL = 0x60000005,
     WGPUSType_SupportedLimitsExtras = 0x60000003,
     WGPUSType_InstanceExtras = 0x60000006,
     WGPUSType_SwapChainDescriptorExtras = 0x60000007,
@@ -22,7 +22,13 @@ typedef enum WGPUNativeFeature {
     WGPUNativeFeature_MULTI_DRAW_INDIRECT = 0x60000003,
     WGPUNativeFeature_MULTI_DRAW_INDIRECT_COUNT = 0x60000004,
     WGPUNativeFeature_VERTEX_WRITABLE_STORAGE = 0x60000005,
+    WGPUFeatureName_WgpuPipelineStatisticsQuery = 0x60000006,
 } WGPUNativeFeature;
+
+typedef enum WGPUWgpuQueryType {
+    WGPUQueryType_WgpuPipelineStatistics = 0x60000001,
+    WGPUWgpuQueryType_Force32 = 0x7FFFFFFF
+} WGPUWgpuQueryType WGPU_ENUM_ATTRIBUTE;
 
 typedef enum WGPULogLevel {
     WGPULogLevel_Off = 0x00000000,
@@ -61,8 +67,8 @@ typedef struct WGPUInstanceExtras {
     WGPUChainedStruct chain;
     WGPUInstanceBackendFlags backends;
     WGPUDx12Compiler dx12ShaderCompiler;
-    const char * dxilPath;
-    const char * dxcPath;
+    WGPUStringView dxilPath;
+    WGPUStringView dxcPath;
 } WGPUInstanceExtras;
 
 typedef struct WGPUAdapterExtras {
@@ -72,7 +78,7 @@ typedef struct WGPUAdapterExtras {
 
 typedef struct WGPUDeviceExtras {
     WGPUChainedStruct chain;
-    const char * tracePath;
+    WGPUStringView tracePath;
 } WGPUDeviceExtras;
 
 typedef struct WGPURequiredLimitsExtras {
@@ -105,17 +111,17 @@ typedef struct WGPUWrappedSubmissionIndex {
 } WGPUWrappedSubmissionIndex;
 
 typedef struct WGPUShaderDefine {
-    char const * name;
-    char const * value;
+    WGPUStringView name;
+    WGPUStringView value;
 } WGPUShaderDefine;
 
-typedef struct WGPUShaderModuleGLSLDescriptor {
+typedef struct WGPUShaderSourceGLSL {
     WGPUChainedStruct chain;
     WGPUShaderStage stage;
-    char const * code;
+    WGPUStringView code;
     uint32_t defineCount;
     WGPUShaderDefine * defines;
-} WGPUShaderModuleGLSLDescriptor;
+} WGPUShaderSourceGLSL;
 
 typedef struct WGPUStorageReport {
     size_t numOccupied;
@@ -159,7 +165,7 @@ typedef struct WGPUSwapChainDescriptorExtras {
     WGPUTextureFormat const * viewFormats;
 } WGPUSwapChainDescriptorExtras;
 
-typedef void (*WGPULogCallback)(WGPULogLevel level, char const * message, void * userdata);
+typedef void (*WGPULogCallback)(WGPULogLevel level, WGPUStringView message, void * userdata);
 
 #ifdef __cplusplus
 extern "C" {

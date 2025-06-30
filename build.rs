@@ -133,7 +133,7 @@ impl ExtraBuilder {
                 if let Some((const_type, const_value)) = match const_raw_value {
                     "UINT32_MAX" => Some(("std::os::raw::c_uint", "std::os::raw::c_uint::MAX")),
                     "UINT64_MAX" => Some(("std::os::raw::c_ulonglong", "std::os::raw::c_ulonglong::MAX")),
-                    "SIZE_MAX" => Some(("std::os::raw::c_ulong", "std::os::raw::c_ulong::MAX")),
+                    "SIZE_MAX" => Some(("usize", "usize::MAX")),
                     "NAN" => Some(("f32", "f32::NAN")),
                     "UINT32_C(0)" => Some(("u32", "0")),
                     "UINT32_C(1)" => Some(("u32", "1")),

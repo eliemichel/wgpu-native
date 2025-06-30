@@ -196,9 +196,8 @@ map_enum!(
 pub const WGPU_WHOLE_SIZE: ::std::os::raw::c_ulonglong = native::WGPU_WHOLE_SIZE as _;
 pub const WGPU_LIMIT_U64_UNDEFINED: ::std::os::raw::c_ulonglong =
     native::WGPU_LIMIT_U64_UNDEFINED as _;
-pub const WGPU_STRLEN: ::std::os::raw::c_ulonglong = native::WGPU_STRLEN as _;
-// it's SIZE_MAX in headers but it's not available in some compilers
-pub const WGPU_WHOLE_MAP_SIZE: usize = usize::MAX;
+pub const WGPU_STRLEN: usize = native::WGPU_STRLEN as _;
+pub const WGPU_WHOLE_MAP_SIZE: usize = native::WGPU_WHOLE_MAP_SIZE as _;
 
 pub fn map_bool(native: native::WGPUBool) -> bool {
     native != 0
@@ -251,11 +250,9 @@ pub fn map_instance_descriptor(
         let dx12_shader_compiler = match extras.dx12ShaderCompiler {
             native::WGPUDx12Compiler_Fxc => wgt::Dx12Compiler::Fxc,
             native::WGPUDx12Compiler_Dxc => wgt::Dx12Compiler::Dxc {
-                dxil_path: unsafe { extras.dxilPath.as_ref() }
-                    .and_then(|v| OwnedLabel::new(v).0)
+                dxil_path: OwnedLabel::from_string_view(extras.dxilPath).into_inner()
                     .map(|v| Path::new(&v).to_path_buf()),
-                dxc_path: unsafe { extras.dxcPath.as_ref() }
-                    .and_then(|v| OwnedLabel::new(v).0)
+                dxc_path: OwnedLabel::from_string_view(extras.dxcPath).into_inner()
                     .map(|v| Path::new(&v).to_path_buf()),
             },
             _ => wgt::Dx12Compiler::default(),
@@ -303,7 +300,7 @@ pub fn map_device_descriptor<'a>(
             }),
             limits,
         },
-        extras.and_then(|extras| OwnedLabel::new(extras.tracePath).into_inner()),
+        extras.and_then(|extras| OwnedLabel::from_string_view(extras.tracePath).into_inner()),
     )
 }
 
@@ -449,17 +446,36 @@ pub fn map_limits(
     wgt_limits
 }
 
+pub fn map_string_view(string_view: &native::WGPUStringView) -> Option<Cow<str>> {
+    if string_view.data.is_null() {
+        None
+    } else if string_view.length == WGPU_STRLEN {
+        Some(
+            unsafe { CStr::from_ptr(string_view.data) }
+                .to_string_lossy()
+        )
+    } else {
+        Some(
+            unsafe {
+                let bytes = std::slice::from_raw_parts(string_view.data.cast(), string_view.length);
+                std::ffi::CStr::from_bytes_with_nul_unchecked(bytes)
+            }
+                .to_string_lossy()
+        )
+    }
+}
+
 pub fn map_shader_module<'a>(
     _: &native::WGPUShaderModuleDescriptor,
-    spirv: Option<&native::WGPUShaderModuleSPIRVDescriptor>,
-    wgsl: Option<&native::WGPUShaderModuleWGSLDescriptor>,
-    glsl: Option<&native::WGPUShaderModuleGLSLDescriptor>,
+    spirv: Option<&native::WGPUShaderSourceSPIRV>,
+    wgsl: Option<&'a native::WGPUShaderSourceWGSL>,
+    glsl: Option<&native::WGPUShaderSourceGLSL>,
 ) -> wgc::pipeline::ShaderModuleSource<'a> {
     #[cfg(feature = "wgsl")]
     if let Some(wgsl) = wgsl {
-        let c_str: &CStr = unsafe { CStr::from_ptr(wgsl.code) };
-        let str_slice: &str = c_str.to_str().expect("not a valid utf-8 string");
-        return wgc::pipeline::ShaderModuleSource::Wgsl(Cow::Borrowed(str_slice));
+        let str_slice = map_string_view(&wgsl.code)
+            .expect("WGSL shader source has a null 'code' field");
+        return wgc::pipeline::ShaderModuleSource::Wgsl(str_slice);
     }
 
     #[cfg(feature = "spirv")]
@@ -478,19 +494,19 @@ pub fn map_shader_module<'a>(
 
     #[cfg(feature = "glsl")]
     if let Some(glsl) = glsl {
-        let c_str: &CStr = unsafe { CStr::from_ptr(glsl.code) };
-        let str_slice: &str = c_str.to_str().expect("not a valid utf-8 string");
+        let str_slice = map_string_view(&glsl.code)
+            .expect("GLSL shader source has a null 'code' field");
         let mut options = naga::front::glsl::Options::from(
             map_shader_stage(glsl.stage).expect("Unknown shader stage"),
         );
 
         let raw_defines = unsafe { slice::from_raw_parts(glsl.defines, glsl.defineCount as usize) };
         for define in raw_defines {
-            let name_c_str: &CStr = unsafe { CStr::from_ptr(define.name) };
-            let name_str_slice: &str = name_c_str.to_str().expect("not a valid utf-8 string");
+            let name_str_slice = map_string_view(&define.name)
+                .expect("define name is not a valid utf-8 string");
 
-            let value_c_str: &CStr = unsafe { CStr::from_ptr(define.value) };
-            let value_str_slice: &str = value_c_str.to_str().expect("not a valid utf-8 string");
+            let value_str_slice = map_string_view(&define.value)
+                .expect("define value is not a valid utf-8 string");
 
             options
                 .defines
@@ -498,7 +514,7 @@ pub fn map_shader_module<'a>(
         }
 
         let mut parser = naga::front::glsl::Parser::default();
-        let module = parser.parse(&options, str_slice).unwrap();
+        let module = parser.parse(&options, &str_slice).unwrap();
         return wgc::pipeline::ShaderModuleSource::Naga(Cow::Owned(module));
     }
 
@@ -913,7 +929,7 @@ pub fn features_to_native(features: wgt::Features) -> Vec<native::WGPUFeatureNam
         temp.push(native::WGPUFeatureName_TimestampQuery);
     }
     if features.contains(wgt::Features::PIPELINE_STATISTICS_QUERY) {
-        temp.push(native::WGPUFeatureName_PipelineStatisticsQuery);
+        temp.push(native::WGPUFeatureName_WgpuPipelineStatisticsQuery);
     }
     if features.contains(wgt::Features::TEXTURE_COMPRESSION_BC) {
         temp.push(native::WGPUFeatureName_TextureCompressionBC);
@@ -956,19 +972,19 @@ pub fn map_feature(feature: native::WGPUFeatureName) -> Option<wgt::Features> {
         native::WGPUFeatureName_DepthClipControl => Some(Features::DEPTH_CLIP_CONTROL),
         native::WGPUFeatureName_Depth32FloatStencil8 => Some(Features::DEPTH32FLOAT_STENCIL8),
         native::WGPUFeatureName_TimestampQuery => Some(Features::TIMESTAMP_QUERY),
-        native::WGPUFeatureName_PipelineStatisticsQuery => Some(Features::PIPELINE_STATISTICS_QUERY),
         native::WGPUFeatureName_TextureCompressionBC => Some(Features::TEXTURE_COMPRESSION_BC),
         native::WGPUFeatureName_TextureCompressionETC2 => Some(Features::TEXTURE_COMPRESSION_ETC2),
         native::WGPUFeatureName_TextureCompressionASTC => Some(Features::TEXTURE_COMPRESSION_ASTC_LDR),
         native::WGPUFeatureName_IndirectFirstInstance => Some(Features::INDIRECT_FIRST_INSTANCE),
         native::WGPUFeatureName_ShaderF16 => Some(Features::SHADER_FLOAT16),
-
+        
         // wgpu-rs only features
         native::WGPUNativeFeature_PUSH_CONSTANTS => Some(Features::PUSH_CONSTANTS),
         native::WGPUNativeFeature_TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES => Some(Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES),
         native::WGPUNativeFeature_MULTI_DRAW_INDIRECT => Some(Features::MULTI_DRAW_INDIRECT),
         native::WGPUNativeFeature_MULTI_DRAW_INDIRECT_COUNT => Some(Features::MULTI_DRAW_INDIRECT_COUNT),
         native::WGPUNativeFeature_VERTEX_WRITABLE_STORAGE => Some(Features::VERTEX_WRITABLE_STORAGE),
+        native::WGPUFeatureName_WgpuPipelineStatisticsQuery => Some(Features::PIPELINE_STATISTICS_QUERY),
 
         // not available in wgpu-core
         native::WGPUFeatureName_RG11B10UfloatRenderable => None,
@@ -1010,7 +1026,9 @@ pub fn map_query_set_descriptor<'a>(
         ty: match desc.type_ {
             native::WGPUQueryType_Occlusion => wgt::QueryType::Occlusion,
             native::WGPUQueryType_Timestamp => wgt::QueryType::Timestamp,
-            native::WGPUQueryType_PipelineStatistics => {
+            // TODO: Restore this by introducing an extension of the descriptor with fields pipelineStatistics and pipelineStatisticsCount
+            /*
+            native::WGPUQueryType_WgpuPipelineStatistics => {
                 let mut types = wgt::PipelineStatisticsTypes::empty();
 
                 unsafe { make_slice(desc.pipelineStatistics, desc.pipelineStatisticsCount as _) }
@@ -1038,6 +1056,7 @@ pub fn map_query_set_descriptor<'a>(
 
                 wgt::QueryType::PipelineStatistics(types)
             }
+            */
             _ => panic!("invalid query type"),
         },
     }
