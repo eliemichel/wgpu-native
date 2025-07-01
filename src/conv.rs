@@ -186,11 +186,11 @@ map_enum!(
     map_composite_alpha_mode,
     WGPUCompositeAlphaMode,
     wgt::CompositeAlphaMode,
-    Auto,
-    Opaque,
-    PreMultiplied,
-    PostMultiplied,
-    Inherit
+    Auto: Auto,
+    Opaque: Opaque,
+    Premultiplied: PreMultiplied,
+    Unpremultiplied: PostMultiplied,
+    Inherit: Inherit
 );
 
 pub const WGPU_WHOLE_SIZE: ::std::os::raw::c_ulonglong = native::WGPU_WHOLE_SIZE as _;
@@ -200,7 +200,11 @@ pub const WGPU_STRLEN: usize = native::WGPU_STRLEN as _;
 pub const WGPU_WHOLE_MAP_SIZE: usize = native::WGPU_WHOLE_MAP_SIZE as _;
 
 pub fn map_bool(native: native::WGPUBool) -> bool {
-    native != 0
+    native != native::WGPU_FALSE
+}
+
+pub fn map_optional_bool(native: native::WGPUOptionalBool, fallback: bool) -> bool {
+    if native == native::WGPUOptionalBool_Undefined { fallback } else { native == native::WGPUOptionalBool_True }
 }
 
 pub fn map_extent3d(native: &native::WGPUExtent3D) -> wgt::Extent3d {
@@ -287,7 +291,7 @@ pub fn map_device_descriptor<'a>(
         |limits| unsafe {
             follow_chain!(
                 map_limits(limits,
-                WGPUSType_RequiredLimitsExtras => native::WGPURequiredLimitsExtras)
+                WGPUSType_LimitsExtras => native::WGPULimitsExtras)
             )
         },
     );
@@ -462,6 +466,13 @@ pub fn map_string_view(string_view: &native::WGPUStringView) -> Option<Cow<str>>
             }
                 .to_string_lossy()
         )
+    }
+}
+
+pub fn to_string_view<T: Into<Vec<u8>>>(s: T) -> native::WGPUStringView {
+    native::WGPUStringView{
+        data: std::ffi::CString::new(s).unwrap().as_ptr(),
+        length: native::WGPU_STRLEN,
     }
 }
 

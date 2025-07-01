@@ -92,7 +92,7 @@ pub unsafe extern "C" fn wgpuInstanceRequestAdapter(
                     }
                 },
                 std::ptr::null_mut(),
-                native::WGPUStringView{ data: message.as_ptr(), length: native::WGPU_STRLEN },
+                conv::to_string_view(message),
                 userdata,
                 std::ptr::null_mut(),
             );
@@ -137,7 +137,7 @@ pub unsafe extern "C" fn wgpuAdapterRequestDevice(
             (callback.unwrap())(
                 native::WGPURequestDeviceStatus_Error,
                 std::ptr::null_mut(),
-                native::WGPUStringView{ data: message.as_ptr(), length: native::WGPU_STRLEN },
+                conv::to_string_view(message),
                 userdata,
                 std::ptr::null_mut(),
             );
@@ -146,30 +146,24 @@ pub unsafe extern "C" fn wgpuAdapterRequestDevice(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wgpuAdapterGetProperties(
+pub unsafe extern "C" fn wgpuAdapterGetInfo(
     adapter: native::WGPUAdapter,
-    properties: Option<&mut native::WGPUAdapterProperties>,
+    info: Option<&mut native::WGPUAdapterInfo>,
 ) {
     let adapter = adapter.as_mut().expect("invalid adapter");
-    let properties = properties.expect("invalid return pointer");
+    let info = info.expect("invalid return pointer");
     let context = &adapter.context;
     let id = adapter.id;
 
-    let maybe_props = gfx_select!(id => context.adapter_get_info(id));
-    if let Ok(props) = maybe_props {
-        adapter.name = CString::new((&props.name) as &str).unwrap();
+    let maybe_core_info = gfx_select!(id => context.adapter_get_info(id));
+    if let Ok(core_info) = maybe_core_info {
+        adapter.name = CString::new((&core_info.name) as &str).unwrap();
 
-        properties.name = adapter.name.as_ptr();
-        properties.vendorID = props.vendor as u32;
-        properties.deviceID = props.device as u32;
-        properties.adapterType = match props.device_type {
-            wgt::DeviceType::Other => native::WGPUAdapterType_Unknown,
-            wgt::DeviceType::IntegratedGpu => native::WGPUAdapterType_IntegratedGPU,
-            wgt::DeviceType::DiscreteGpu => native::WGPUAdapterType_DiscreteGPU,
-            wgt::DeviceType::VirtualGpu => native::WGPUAdapterType_CPU, // close enough?
-            wgt::DeviceType::Cpu => native::WGPUAdapterType_CPU,
-        };
-        properties.backendType = match props.backend {
+        info.vendor = conv::to_string_view("");
+        info.architecture = conv::to_string_view("");
+        info.device = conv::to_string_view(core_info.name);
+        info.description = conv::to_string_view(core_info.driver + ", " + core_info.driver_info.as_str());
+        info.backendType = match core_info.backend {
             wgt::Backend::Empty => native::WGPUBackendType_Null,
             wgt::Backend::Vulkan => native::WGPUBackendType_Vulkan,
             wgt::Backend::Metal => native::WGPUBackendType_Metal,
@@ -178,13 +172,24 @@ pub unsafe extern "C" fn wgpuAdapterGetProperties(
             wgt::Backend::Gl => native::WGPUBackendType_OpenGL,
             wgt::Backend::BrowserWebGpu => native::WGPUBackendType_OpenGLES, // close enough?
         };
+        info.adapterType = match core_info.device_type {
+            wgt::DeviceType::Other => native::WGPUAdapterType_Unknown,
+            wgt::DeviceType::IntegratedGpu => native::WGPUAdapterType_IntegratedGPU,
+            wgt::DeviceType::DiscreteGpu => native::WGPUAdapterType_DiscreteGPU,
+            wgt::DeviceType::VirtualGpu => native::WGPUAdapterType_CPU, // close enough?
+            wgt::DeviceType::Cpu => native::WGPUAdapterType_CPU,
+        };
+        info.vendorID = core_info.vendor as u32;
+        info.deviceID = core_info.device as u32;
+        info.subgroupMinSize = 0;
+        info.subgroupMaxSize = 0;
     }
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wgpuAdapterGetLimits(
     adapter: native::WGPUAdapter,
-    limits: Option<&mut native::WGPUSupportedLimits>,
+    limits: Option<&mut native::WGPULimits>,
 ) -> bool {
     let (adapter, context) = adapter.unwrap_handle();
     let limits = limits.expect("invalid return pointer");
@@ -285,7 +290,7 @@ pub unsafe extern "C" fn wgpuDeviceHasFeature(
 #[no_mangle]
 pub unsafe extern "C" fn wgpuDeviceGetLimits(
     device: native::WGPUDevice,
-    limits: Option<&mut native::WGPUSupportedLimits>,
+    limits: Option<&mut native::WGPULimits>,
 ) -> bool {
     let (device, context) = device.unwrap_handle();
     let limits = limits.expect("invalid return pointer");
@@ -301,9 +306,8 @@ pub unsafe extern "C" fn wgpuDeviceGetLimits(
 
 fn write_limits_struct(
     wgt_limits: wgt::Limits,
-    supported_limits: &mut native::WGPUSupportedLimits,
+    limits: &mut native::WGPULimits,
 ) {
-    let mut limits = supported_limits.limits; // This makes a copy - we copy back at the end
     limits.maxTextureDimension1D = wgt_limits.max_texture_dimension_1d;
     limits.maxTextureDimension2D = wgt_limits.max_texture_dimension_2d;
     limits.maxTextureDimension3D = wgt_limits.max_texture_dimension_3d;
@@ -326,26 +330,25 @@ fn write_limits_struct(
     limits.maxBufferSize = wgt_limits.max_buffer_size;
     limits.maxVertexAttributes = wgt_limits.max_vertex_attributes;
     limits.maxVertexBufferArrayStride = wgt_limits.max_vertex_buffer_array_stride;
-    limits.maxInterStageShaderComponents = wgt_limits.max_inter_stage_shader_components;
     limits.maxComputeWorkgroupStorageSize = wgt_limits.max_compute_workgroup_storage_size;
     limits.maxComputeInvocationsPerWorkgroup = wgt_limits.max_compute_invocations_per_workgroup;
     limits.maxComputeWorkgroupSizeX = wgt_limits.max_compute_workgroup_size_x;
     limits.maxComputeWorkgroupSizeY = wgt_limits.max_compute_workgroup_size_y;
     limits.maxComputeWorkgroupSizeZ = wgt_limits.max_compute_workgroup_size_z;
     limits.maxComputeWorkgroupsPerDimension = wgt_limits.max_compute_workgroups_per_dimension;
-    supported_limits.limits = limits;
 
-    if !supported_limits.nextInChain.is_null() {
+    if !limits.nextInChain.is_null() {
         unsafe {
             let mut extras = std::mem::transmute::<
-                *mut native::WGPUChainedStructOut,
-                *mut native::WGPUSupportedLimitsExtras,
-            >(supported_limits.nextInChain);
+                *mut native::WGPUChainedStruct,
+                *mut native::WGPULimitsExtras,
+            >(limits.nextInChain);
 
             (*extras).chain.next = std::ptr::null_mut();
-            (*extras).chain.sType = native::WGPUSType_SupportedLimitsExtras;
+            (*extras).chain.sType = native::WGPUSType_LimitsExtras;
 
             (*extras).maxPushConstantSize = wgt_limits.max_push_constant_size;
+            (*extras).maxInterStageShaderComponents = wgt_limits.max_inter_stage_shader_components;
         }
     }
 }
@@ -392,8 +395,8 @@ pub unsafe extern "C" fn wgpuDeviceCreateBuffer(
     let desc = wgt::BufferDescriptor {
         label: label.as_cow(),
         size: descriptor.size,
-        usage: wgt::BufferUsages::from_bits(descriptor.usage).expect("invalid buffer usage"),
-        mapped_at_creation: descriptor.mappedAtCreation,
+        usage: wgt::BufferUsages::from_bits(descriptor.usage as u32).expect("invalid buffer usage"),
+        mapped_at_creation: conv::map_bool(descriptor.mappedAtCreation),
     };
 
     let (id, error) = gfx_select!(device => context.device_create_buffer(device, &desc, ()));
@@ -453,7 +456,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateBindGroupLayout(
                     native::WGPUTextureViewDimension_3D => wgt::TextureViewDimension::D3,
                     x => panic!("Unknown texture ViewDimension: {x}"),
                 },
-                multisampled: entry.texture.multisampled,
+                multisampled: conv::map_bool(entry.texture.multisampled),
             }
         } else if is_sampler {
             match entry.sampler.type_ {
@@ -502,7 +505,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateBindGroupLayout(
                     }
                     x => panic!("Unknown Buffer Type: {x}"),
                 },
-                has_dynamic_offset: entry.buffer.hasDynamicOffset,
+                has_dynamic_offset: conv::map_bool(entry.buffer.hasDynamicOffset),
                 min_binding_size: {
                     assert_ne!(
                         entry.buffer.minBindingSize,
@@ -520,7 +523,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateBindGroupLayout(
         entries.push(wgt::BindGroupLayoutEntry {
             ty,
             binding: entry.binding,
-            visibility: wgt::ShaderStages::from_bits(entry.visibility)
+            visibility: wgt::ShaderStages::from_bits(entry.visibility as u32)
                 .expect("invalid visibility for bind group layout entry"),
             count: None, // TODO - What is this?
         });
@@ -758,10 +761,10 @@ pub unsafe extern "C" fn wgpuQueueWriteBuffer(
 #[no_mangle]
 pub unsafe extern "C" fn wgpuQueueWriteTexture(
     queue: native::WGPUQueue,
-    destination: Option<&native::WGPUImageCopyTexture>,
+    destination: Option<&native::WGPUTexelCopyTextureInfo>,
     data: *const u8, // TODO: Check - this might not follow the header
     data_size: usize,
-    data_layout: Option<&native::WGPUTextureDataLayout>,
+    data_layout: Option<&native::WGPUTexelCopyBufferLayout>,
     write_size: Option<&native::WGPUExtent3D>,
 ) {
     let (queue, context) = queue.unwrap_handle();
@@ -769,9 +772,9 @@ pub unsafe extern "C" fn wgpuQueueWriteTexture(
     let slice = make_slice(data, data_size);
     gfx_select!(queue => context.queue_write_texture(
         queue,
-        &conv::map_image_copy_texture(destination.expect("invalid destination")),
+        &conv::map_texel_copy_texture_info(destination.expect("invalid destination")),
         slice,
-        &conv::map_texture_data_layout(data_layout.expect("invalid data layout")),
+        &conv::map_texel_copy_buffer_layout(data_layout.expect("invalid data layout")),
         &conv::map_extent3d(write_size.expect("invalid write size"))
     ))
     .expect("Unable to write texture")
@@ -780,7 +783,7 @@ pub unsafe extern "C" fn wgpuQueueWriteTexture(
 #[no_mangle]
 pub unsafe extern "C" fn wgpuBufferMapAsync(
     buffer: native::WGPUBuffer,
-    mode: native::WGPUMapModeFlags,
+    mode: native::WGPUMapMode,
     offset: usize,
     size: usize,
     callback: native::WGPUBufferMapCallback,
@@ -944,7 +947,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateRenderPipeline(
             .map(|desc| wgt::DepthStencilState {
                 format: conv::map_texture_format(desc.format)
                     .expect("Texture format must be defined in DepthStencilState"),
-                depth_write_enabled: desc.depthWriteEnabled,
+                depth_write_enabled: conv::map_optional_bool(desc.depthWriteEnabled, false),
                 depth_compare: conv::map_compare_function(desc.depthCompare).unwrap(),
                 stencil: wgt::StencilState {
                     front: conv::map_stencil_face_state(desc.stencilFront),
@@ -961,7 +964,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateRenderPipeline(
         multisample: wgt::MultisampleState {
             count: descriptor.multisample.count,
             mask: descriptor.multisample.mask as u64,
-            alpha_to_coverage_enabled: descriptor.multisample.alphaToCoverageEnabled,
+            alpha_to_coverage_enabled: conv::map_bool(descriptor.multisample.alphaToCoverageEnabled),
         },
         fragment: descriptor
             .fragment
@@ -989,7 +992,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateRenderPipeline(
                                             alpha: conv::map_blend_component(blend.alpha),
                                         }
                                     }),
-                                    write_mask: wgt::ColorWrites::from_bits(color_target.writeMask)
+                                    write_mask: wgt::ColorWrites::from_bits(color_target.writeMask as u32)
                                         .unwrap(),
                                 }
                             })
@@ -1035,34 +1038,6 @@ pub unsafe extern "C" fn wgpuRenderPipelineGetBindGroupLayout(
         std::ptr::null_mut()
     } else {
         id.into_handle_with_context(context)
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wgpuDeviceCreateSwapChain(
-    device: native::WGPUDevice,
-    surface: native::WGPUSurface,
-    descriptor: Option<&native::WGPUSwapChainDescriptor>,
-) -> native::WGPUSwapChain {
-    let (device, _) = device.unwrap_handle();
-    let (surface, context) = surface.unwrap_handle();
-    let config = follow_chain!(
-        map_swapchain_descriptor(
-            descriptor.expect("invalid descriptor"),
-            WGPUSType_SwapChainDescriptorExtras => native::WGPUSwapChainDescriptorExtras)
-    );
-
-    let error = gfx_select!(device => context.surface_configure(surface, device, &config));
-    if let Some(error) = error {
-        handle_device_error(device, &error);
-        std::ptr::null_mut()
-    } else {
-        native::WGPUSwapChainImpl {
-            context: context.clone(),
-            surface_id: surface,
-            device_id: device,
-        }
-        .into_handle()
     }
 }
 
@@ -1175,7 +1150,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateTexture(
         dimension: conv::map_texture_dimension(descriptor.dimension),
         format: conv::map_texture_format(descriptor.format)
             .expect("invalid texture format for texture descriptor"),
-        usage: wgt::TextureUsages::from_bits(descriptor.usage)
+        usage: wgt::TextureUsages::from_bits(descriptor.usage as u32)
             .expect("invalid texture usage for texture descriptor"),
         view_formats: make_slice(descriptor.viewFormats, descriptor.viewFormatCount as usize)
             .iter()
@@ -1253,7 +1228,7 @@ pub unsafe extern "C" fn wgpuDeviceCreateRenderBundleEncoder(
         color_formats: unsafe {
             make_slice(
                 descriptor.colorFormats,
-                descriptor.colorFormatsCount as usize,
+                descriptor.colorFormatCount as usize,
             )
         }
         .iter()

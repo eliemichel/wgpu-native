@@ -7,10 +7,9 @@ typedef enum WGPUNativeSType {
     // Start at 6 to prevent collisions with webgpu STypes
     WGPUSType_DeviceExtras = 0x60000001,
     WGPUSType_AdapterExtras = 0x60000002,
-    WGPUSType_RequiredLimitsExtras = 0x60000003,
+    WGPUSType_LimitsExtras = 0x60000003,
     WGPUSType_PipelineLayoutExtras = 0x60000004,
     WGPUSType_ShaderSourceGLSL = 0x60000005,
-    WGPUSType_SupportedLimitsExtras = 0x60000003,
     WGPUSType_InstanceExtras = 0x60000006,
     WGPUSType_SwapChainDescriptorExtras = 0x60000007,
     WGPUNativeSType_Force32 = 0x7FFFFFFF
@@ -81,15 +80,11 @@ typedef struct WGPUDeviceExtras {
     WGPUStringView tracePath;
 } WGPUDeviceExtras;
 
-typedef struct WGPURequiredLimitsExtras {
+typedef struct WGPULimitsExtras {
     WGPUChainedStruct chain;
     uint32_t maxPushConstantSize;
+    uint32_t maxInterStageShaderComponents;
 } WGPURequiredLimitsExtras;
-
-typedef struct WGPUSupportedLimitsExtras {
-    WGPUChainedStruct chain;
-    uint32_t maxPushConstantSize;
-} WGPUSupportedLimitsExtras;
 
 typedef struct WGPUPushConstantRange {
     WGPUShaderStage stages;

@@ -448,12 +448,12 @@ pub unsafe extern "C" fn wgpuInstanceCreateSurface(
 
     let create_surface_params = follow_chain!(
         map_surface(descriptor,
-            WGPUSType_SurfaceDescriptorFromWindowsHWND => native::WGPUSurfaceDescriptorFromWindowsHWND,
-            WGPUSType_SurfaceDescriptorFromXcbWindow => native::WGPUSurfaceDescriptorFromXcbWindow,
-            WGPUSType_SurfaceDescriptorFromXlibWindow => native::WGPUSurfaceDescriptorFromXlibWindow,
-            WGPUSType_SurfaceDescriptorFromWaylandSurface => native::WGPUSurfaceDescriptorFromWaylandSurface,
-            WGPUSType_SurfaceDescriptorFromMetalLayer => native::WGPUSurfaceDescriptorFromMetalLayer,
-            WGPUSType_SurfaceDescriptorFromAndroidNativeWindow => native::WGPUSurfaceDescriptorFromAndroidNativeWindow)
+            WGPUSType_SurfaceSourceWindowsHWND => native::WGPUSurfaceSourceWindowsHWND,
+            WGPUSType_SurfaceSourceXCBWindow => native::WGPUSurfaceSourceXCBWindow,
+            WGPUSType_SurfaceSourceXlibWindow => native::WGPUSurfaceSourceXlibWindow,
+            WGPUSType_SurfaceSourceWaylandSurface => native::WGPUSurfaceSourceWaylandSurface,
+            WGPUSType_SurfaceSourceMetalLayer => native::WGPUSurfaceSourceMetalLayer,
+            WGPUSType_SurfaceSourceAndroidNativeWindow => native::WGPUSurfaceSourceAndroidNativeWindow)
     );
 
     let context = &instance.as_ref().expect("invalid instance").context;
@@ -468,12 +468,12 @@ pub unsafe extern "C" fn wgpuInstanceCreateSurface(
 
 unsafe fn map_surface(
     _: &native::WGPUSurfaceDescriptor,
-    _win: Option<&native::WGPUSurfaceDescriptorFromWindowsHWND>,
-    _xcb: Option<&native::WGPUSurfaceDescriptorFromXcbWindow>,
-    _xlib: Option<&native::WGPUSurfaceDescriptorFromXlibWindow>,
-    _wl: Option<&native::WGPUSurfaceDescriptorFromWaylandSurface>,
-    _metal: Option<&native::WGPUSurfaceDescriptorFromMetalLayer>,
-    _android: Option<&native::WGPUSurfaceDescriptorFromAndroidNativeWindow>,
+    _win: Option<&native::WGPUSurfaceSourceWindowsHWND>,
+    _xcb: Option<&native::WGPUSurfaceSourceXCBWindow>,
+    _xlib: Option<&native::WGPUSurfaceSourceXlibWindow>,
+    _wl: Option<&native::WGPUSurfaceSourceWaylandSurface>,
+    _metal: Option<&native::WGPUSurfaceSourceMetalLayer>,
+    _android: Option<&native::WGPUSurfaceSourceAndroidNativeWindow>,
 ) -> CreateSurfaceParams {
     #[cfg(windows)]
     if let Some(win) = _win {
@@ -604,11 +604,7 @@ pub unsafe extern "C" fn wgpuSurfaceGetCapabilities(
         .collect::<Vec<native::WGPUTextureFormat>>();
 
     capabilities.formatCount = formats.len();
-
-    if !capabilities.formats.is_null() {
-        let out_slice = std::slice::from_raw_parts_mut(capabilities.formats, formats.len());
-        out_slice.copy_from_slice(&formats);
-    }
+    capabilities.formats = formats.as_ptr(); // TODO(elie): Ensure lifetime
 
     let present_modes = caps
         .present_modes
@@ -617,12 +613,7 @@ pub unsafe extern "C" fn wgpuSurfaceGetCapabilities(
         .collect::<Vec<native::WGPUPresentMode>>();
 
     capabilities.presentModeCount = present_modes.len();
-
-    if !capabilities.presentModes.is_null() {
-        let out_slice =
-            std::slice::from_raw_parts_mut(capabilities.presentModes, present_modes.len());
-        out_slice.copy_from_slice(&present_modes);
-    }
+    capabilities.presentModes = present_modes.as_ptr(); // TODO(elie): Ensure lifetime
 
     let alpha_modes = caps
         .alpha_modes
@@ -631,11 +622,7 @@ pub unsafe extern "C" fn wgpuSurfaceGetCapabilities(
         .collect::<Vec<native::WGPUCompositeAlphaMode>>();
 
     capabilities.alphaModeCount = alpha_modes.len();
-
-    if !capabilities.alphaModes.is_null() {
-        let out_slice = std::slice::from_raw_parts_mut(capabilities.alphaModes, alpha_modes.len());
-        out_slice.copy_from_slice(&alpha_modes);
-    }
+    capabilities.alphaModes = alpha_modes.as_ptr(); // TODO(elie): Ensure lifetime
 }
 
 #[no_mangle]
@@ -655,7 +642,7 @@ struct DeviceCallback<T> {
     userdata: *mut std::os::raw::c_void,
 }
 
-type UncapturedErrorCallback = DeviceCallback<native::WGPUErrorCallback>;
+type UncapturedErrorCallback = DeviceCallback<native::WGPUUncapturedErrorCallback>;
 type DeviceLostCallback = DeviceCallback<native::WGPUDeviceLostCallback>;
 
 unsafe impl<T> Send for DeviceCallback<T> {}
@@ -672,39 +659,9 @@ lazy_static::lazy_static! {
     });
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn wgpuDeviceSetUncapturedErrorCallback(
-    device: native::WGPUDevice,
-    callback: native::WGPUErrorCallback,
-    userdata: *mut std::os::raw::c_void,
-) {
-    let (device, _) = device.unwrap_handle();
-
-    CALLBACKS
-        .lock()
-        .unwrap()
-        .uncaptured_errors
-        .insert(device, UncapturedErrorCallback { callback, userdata });
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wgpuDeviceSetDeviceLostCallback(
-    device: native::WGPUDevice,
-    callback: native::WGPUDeviceLostCallback,
-    userdata: *mut std::os::raw::c_void,
-) {
-    let (device, _) = device.unwrap_handle();
-
-    CALLBACKS
-        .lock()
-        .unwrap()
-        .device_lost
-        .insert(device, DeviceLostCallback { callback, userdata });
-}
-
 pub fn handle_device_error_raw(device: id::DeviceId, typ: native::WGPUErrorType, msg: &str) {
     log::debug!("Device error ({}): {}", typ, msg);
-    let msg_c = CString::new(msg).unwrap();
+    let msg_c = conv::to_string_view(msg);
     unsafe {
         match typ {
             native::WGPUErrorType_DeviceLost => {
@@ -713,8 +670,10 @@ pub fn handle_device_error_raw(device: id::DeviceId, typ: native::WGPUErrorType,
                 if let Some(cb) = cb {
                     cb.callback.unwrap()(
                         native::WGPUDeviceLostReason_Destroyed,
-                        msg_c.as_ptr(),
+                        device,
+                        msg_c,
                         cb.userdata,
+                        std::ptr::null_mut(),
                     );
                 }
             }
@@ -722,7 +681,7 @@ pub fn handle_device_error_raw(device: id::DeviceId, typ: native::WGPUErrorType,
                 let cbs = CALLBACKS.lock().unwrap();
                 let cb = cbs.uncaptured_errors.get(&device);
                 if let Some(cb) = cb {
-                    cb.callback.unwrap()(typ, msg_c.as_ptr(), cb.userdata);
+                    cb.callback.unwrap()(device, typ, msg_c, cb.userdata, std::ptr::null_mut());
                 }
             }
         }
