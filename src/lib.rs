@@ -1,6 +1,6 @@
-use crate::conv::{map_instance_descriptor, WGPU_LIMIT_U64_UNDEFINED, WGPU_STRLEN};
+use crate::conv::{map_instance_descriptor};
 use native::{Handle, IntoHandle, IntoHandleWithContext, UnwrapId};
-use std::{borrow::Cow, collections::HashMap, ffi::CString, sync::Arc, sync::Mutex};
+use std::{borrow::Cow, collections::HashMap, sync::Arc, sync::Mutex};
 use wgc::id;
 
 pub mod command;
@@ -232,17 +232,7 @@ pub type Label<'a> = Option<Cow<'a, str>>;
 
 struct OwnedLabel(Option<String>);
 impl OwnedLabel {
-    fn new(ptr: *const std::os::raw::c_char) -> Self {
-        Self(if ptr.is_null() {
-            None
-        } else {
-            Some(
-                unsafe { std::ffi::CStr::from_ptr(ptr) }
-                    .to_string_lossy()
-                    .to_string(),
-            )
-        })
-    }
+    // TODO(elie): Can be renamed new() now that there is no longer the legacy new()
     fn from_string_view(string_view: native::WGPUStringView) -> Self {
         Self(conv::map_string_view(&string_view).map(|s| s.to_string()))
     }
@@ -659,42 +649,45 @@ lazy_static::lazy_static! {
     });
 }
 
-pub fn handle_device_error_raw(device: id::DeviceId, typ: native::WGPUErrorType, msg: &str) {
+pub fn handle_device_error_raw(device: id::DeviceId, context: &Arc<Context>, typ: native::WGPUErrorType, msg: &str) {
     log::debug!("Device error ({}): {}", typ, msg);
-    let msg_c = conv::to_string_view(msg);
     unsafe {
-        match typ {
-            native::WGPUErrorType_DeviceLost => {
-                let cbs = CALLBACKS.lock().unwrap();
-                let cb = cbs.device_lost.get(&device);
-                if let Some(cb) = cb {
-                    cb.callback.unwrap()(
-                        native::WGPUDeviceLostReason_Destroyed,
-                        device,
-                        msg_c,
-                        cb.userdata,
-                        std::ptr::null_mut(),
-                    );
-                }
-            }
-            _ => {
-                let cbs = CALLBACKS.lock().unwrap();
-                let cb = cbs.uncaptured_errors.get(&device);
-                if let Some(cb) = cb {
-                    cb.callback.unwrap()(device, typ, msg_c, cb.userdata, std::ptr::null_mut());
-                }
-            }
+        let cbs = CALLBACKS.lock().unwrap();
+        let cb = cbs.uncaptured_errors.get(&device);
+        if let Some(cb) = cb {
+            cb.callback.unwrap()(
+                &device.into_handle_with_context(context), // TODO(elie): This may lead to a dangling pointer
+                typ,
+                conv::to_string_view(msg),
+                cb.userdata,
+                std::ptr::null_mut()
+            );
         }
     }
 }
 
-pub fn handle_device_error<E: std::any::Any + std::error::Error>(device: id::DeviceId, error: &E) {
+pub fn handle_device_lost_raw(device: id::DeviceId, context: &Arc<Context>, msg: &str) {
+    log::debug!("Device error (Lost): {}", msg);
+    unsafe {
+        let cbs = CALLBACKS.lock().unwrap();
+        let cb = cbs.device_lost.get(&device);
+        if let Some(cb) = cb {
+            cb.callback.unwrap()(
+                &device.into_handle_with_context(context),
+                native::WGPUDeviceLostReason_Destroyed,
+                conv::to_string_view(msg),
+                cb.userdata,
+                std::ptr::null_mut(),
+            );
+        }
+    }
+}
+
+pub fn handle_device_error<E: std::any::Any + std::error::Error>(device: id::DeviceId, context: &Arc<Context>, error: &E) {
     let error_any = error as &dyn std::any::Any;
 
-    let typ = match error_any.downcast_ref::<wgc::device::DeviceError>() {
-        Some(wgc::device::DeviceError::Lost) => native::WGPUErrorType_DeviceLost,
-        _ => native::WGPUErrorType_Unknown,
+    match error_any.downcast_ref::<wgc::device::DeviceError>() {
+        Some(wgc::device::DeviceError::Lost) => handle_device_lost_raw(device, context, &format!("{error:?}")),
+        _ => handle_device_error_raw(device, context, native::WGPUErrorType_Unknown, &format!("{error:?}")),
     };
-
-    handle_device_error_raw(device, typ, &format!("{error:?}"));
 }

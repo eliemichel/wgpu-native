@@ -1,7 +1,7 @@
-use crate::{map_enum, native};
+use crate::{conv, map_enum, native};
 use lazy_static::lazy_static;
 use log::{Level, LevelFilter, Metadata, Record};
-use std::{ffi::CString, sync::Mutex};
+use std::{sync::Mutex};
 
 #[no_mangle]
 pub extern "C" fn wgpuGetVersion() -> std::os::raw::c_uint {
@@ -43,7 +43,6 @@ impl log::Log for Logger {
 
         if let Some(callback) = callback {
             let msg = record.args().to_string();
-            let msg_c = CString::new(msg).unwrap();
             let level = match record.level() {
                 Level::Error => native::WGPULogLevel_Error,
                 Level::Warn => native::WGPULogLevel_Warn,
@@ -53,7 +52,7 @@ impl log::Log for Logger {
             };
 
             unsafe {
-                callback(level, msg_c.as_ptr(), userdata);
+                callback(level, conv::to_string_view(msg), userdata);
             }
 
             // We do not use std::mem::forget(msg_c), so Rust will reclaim the memory

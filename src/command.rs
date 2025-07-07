@@ -879,7 +879,7 @@ pub unsafe extern "C" fn wgpuRenderBundleEncoderFinish(
 
     let (render_bundle, error) = gfx_select!(device => context.render_bundle_encoder_finish(render_bundle_encoder, &desc, ()));
     if let Some(error) = error {
-        handle_device_error(device, &error);
+        handle_device_error(device, &context, &error);
         std::ptr::null_mut()
     } else {
         render_bundle.into_handle_with_context(&context)

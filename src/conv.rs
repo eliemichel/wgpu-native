@@ -469,10 +469,11 @@ pub fn map_string_view(string_view: &native::WGPUStringView) -> Option<Cow<str>>
     }
 }
 
-pub fn to_string_view<T: Into<Vec<u8>>>(s: T) -> native::WGPUStringView {
+pub fn to_string_view<T: AsRef<str>>(s: T) -> native::WGPUStringView {
+    let s_ref: &str = s.as_ref();
     native::WGPUStringView{
-        data: std::ffi::CString::new(s).unwrap().as_ptr(),
-        length: native::WGPU_STRLEN,
+        data: s_ref.as_ptr() as *const i8,
+        length: s_ref.len(),
     }
 }
 
