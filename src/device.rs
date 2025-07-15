@@ -159,10 +159,10 @@ pub unsafe extern "C" fn wgpuAdapterGetInfo(
     if let Ok(core_info) = maybe_core_info {
         adapter.name = CString::new((&core_info.name) as &str).unwrap();
 
-        info.vendor = conv::to_string_view("");
-        info.architecture = conv::to_string_view("");
-        info.device = conv::to_string_view(core_info.name); // TODO(elie): lifetime issue? create a "safe" wrapper around WGPUStringView
-        info.description = conv::to_string_view(core_info.driver + ", " + core_info.driver_info.as_str());
+        info.vendor = conv::yield_string_view(String::from("Unknown vendor"));
+        info.architecture = conv::yield_string_view(String::from("Unknown architecture"));
+        info.device = conv::yield_string_view(core_info.name);
+        info.description = conv::yield_string_view(core_info.driver + ", " + core_info.driver_info.as_str());
         info.backendType = match core_info.backend {
             wgt::Backend::Empty => native::WGPUBackendType_Null,
             wgt::Backend::Vulkan => native::WGPUBackendType_Vulkan,
@@ -183,7 +183,22 @@ pub unsafe extern "C" fn wgpuAdapterGetInfo(
         info.deviceID = core_info.device as u32;
         info.subgroupMinSize = 0;
         info.subgroupMaxSize = 0;
+    } else {
+        info.vendor = conv::yield_string_view(String::from("Unknown vendor"));
+        info.architecture = conv::yield_string_view(String::from("Unknown architecture"));
+        info.device = conv::yield_string_view(String::from("Unknown device"));
+        info.description = conv::yield_string_view(String::from("Unknown description"));
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wgpuAdapterInfoFreeMembers(
+    info: native::WGPUAdapterInfo,
+) {
+    conv::grab_string_view(info.vendor);
+    conv::grab_string_view(info.architecture);
+    conv::grab_string_view(info.device);
+    conv::grab_string_view(info.description);
 }
 
 #[no_mangle]

@@ -1,5 +1,6 @@
 use crate::native::{self, UnwrapId};
 use crate::{follow_chain, make_slice, map_enum, Label, OwnedLabel};
+use std::ffi::{c_char, CString};
 use std::path::Path;
 use std::{borrow::Cow, ffi::CStr, num::NonZeroU32, slice};
 
@@ -450,6 +451,7 @@ pub fn map_limits(
     wgt_limits
 }
 
+// Use this to turn a WGPUStringView into a str without transfering any ownership
 pub fn map_string_view(string_view: &native::WGPUStringView) -> Option<Cow<str>> {
     if string_view.data.is_null() {
         None
@@ -469,11 +471,44 @@ pub fn map_string_view(string_view: &native::WGPUStringView) -> Option<Cow<str>>
     }
 }
 
+// Use this to expose a str to the C API as WGPUStringView without transferring its ownership to the C layer
 pub fn to_string_view<T: AsRef<str>>(s: T) -> native::WGPUStringView {
     let s_ref: &str = s.as_ref();
     native::WGPUStringView{
         data: s_ref.as_ptr() as *const i8,
         length: s_ref.len(),
+    }
+}
+
+// Create a string view from a String and transfer its ownership to the C API
+pub fn yield_string_view(s: String) -> native::WGPUStringView {
+    let boxed = s.into_boxed_str();
+    let len = boxed.len();
+    let ptr = Box::into_raw(boxed) as *const i8;
+    native::WGPUStringView{
+        data: ptr,
+        length: len,
+    }
+}
+
+// Retrieve ownership from a string view that was previouslt created by yield_string_view
+// and was transported through the C layer
+pub fn grab_string_view(string_view: native::WGPUStringView) -> String {
+    let len = string_view.length;
+    if len != native::WGPU_STRLEN {
+        // Reclaim the Box<str> created earlier
+        let ptr = string_view.data as *mut u8;
+        unsafe {
+            // SAFETY: `ptr` came from Box<str> with len == capacity
+            String::from_raw_parts(ptr, len, len)
+        }
+    } else {
+        // NB: This cannot happen yet because yield_string_view never creates a CString for now
+        let ptr = string_view.data as *mut c_char;
+        unsafe {
+            // SAFETY: pointer must be null-terminated and owned by C
+            CString::from_raw(ptr).into_string().expect("Could not decode null-terminated UTF-8 string")
+        }
     }
 }
 
