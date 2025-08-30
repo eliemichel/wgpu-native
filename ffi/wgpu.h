@@ -187,27 +187,27 @@ void wgpuRenderPassEncoderMultiDrawIndexedIndirect(WGPURenderPassEncoder encoder
 void wgpuRenderPassEncoderMultiDrawIndirectCount(WGPURenderPassEncoder encoder, WGPUBuffer buffer, uint64_t offset, WGPUBuffer count_buffer, uint64_t count_buffer_offset, uint32_t max_count);
 void wgpuRenderPassEncoderMultiDrawIndexedIndirectCount(WGPURenderPassEncoder encoder, WGPUBuffer buffer, uint64_t offset, WGPUBuffer count_buffer, uint64_t count_buffer_offset, uint32_t max_count);
 
-void wgpuInstanceDrop(WGPUInstance instance);
-void wgpuAdapterDrop(WGPUAdapter adapter);
-void wgpuBindGroupDrop(WGPUBindGroup bindGroup);
-void wgpuBindGroupLayoutDrop(WGPUBindGroupLayout bindGroupLayout);
-void wgpuBufferDrop(WGPUBuffer buffer);
-void wgpuCommandBufferDrop(WGPUCommandBuffer commandBuffer);
-void wgpuCommandEncoderDrop(WGPUCommandEncoder commandEncoder);
-void wgpuRenderPassEncoderDrop(WGPURenderPassEncoder renderPassEncoder);
-void wgpuComputePassEncoderDrop(WGPUComputePassEncoder computePassEncoder);
-void wgpuRenderBundleEncoderDrop(WGPURenderBundleEncoder renderBundleEncoder);
-void wgpuComputePipelineDrop(WGPUComputePipeline computePipeline);
-void wgpuDeviceDrop(WGPUDevice device);
-void wgpuPipelineLayoutDrop(WGPUPipelineLayout pipelineLayout);
-void wgpuQuerySetDrop(WGPUQuerySet querySet);
-void wgpuRenderBundleDrop(WGPURenderBundle renderBundle);
-void wgpuRenderPipelineDrop(WGPURenderPipeline renderPipeline);
-void wgpuSamplerDrop(WGPUSampler sampler);
-void wgpuShaderModuleDrop(WGPUShaderModule shaderModule);
-void wgpuSurfaceDrop(WGPUSurface surface);
-void wgpuTextureDrop(WGPUTexture texture);
-void wgpuTextureViewDrop(WGPUTextureView textureView);
+WGPU_EXPORT void wgpuInstanceDrop(WGPUInstance instance);
+WGPU_EXPORT void wgpuAdapterDrop(WGPUAdapter adapter);
+WGPU_EXPORT void wgpuBindGroupDrop(WGPUBindGroup bindGroup);
+WGPU_EXPORT void wgpuBindGroupLayoutDrop(WGPUBindGroupLayout bindGroupLayout);
+WGPU_EXPORT void wgpuBufferDrop(WGPUBuffer buffer);
+WGPU_EXPORT void wgpuCommandBufferDrop(WGPUCommandBuffer commandBuffer);
+WGPU_EXPORT void wgpuCommandEncoderDrop(WGPUCommandEncoder commandEncoder);
+WGPU_EXPORT void wgpuRenderPassEncoderDrop(WGPURenderPassEncoder renderPassEncoder);
+WGPU_EXPORT void wgpuComputePassEncoderDrop(WGPUComputePassEncoder computePassEncoder);
+WGPU_EXPORT void wgpuRenderBundleEncoderDrop(WGPURenderBundleEncoder renderBundleEncoder);
+WGPU_EXPORT void wgpuComputePipelineDrop(WGPUComputePipeline computePipeline);
+WGPU_EXPORT void wgpuDeviceDrop(WGPUDevice device);
+WGPU_EXPORT void wgpuPipelineLayoutDrop(WGPUPipelineLayout pipelineLayout);
+WGPU_EXPORT void wgpuQuerySetDrop(WGPUQuerySet querySet);
+WGPU_EXPORT void wgpuRenderBundleDrop(WGPURenderBundle renderBundle);
+WGPU_EXPORT void wgpuRenderPipelineDrop(WGPURenderPipeline renderPipeline);
+WGPU_EXPORT void wgpuSamplerDrop(WGPUSampler sampler);
+WGPU_EXPORT void wgpuShaderModuleDrop(WGPUShaderModule shaderModule);
+WGPU_EXPORT void wgpuSurfaceDrop(WGPUSurface surface);
+WGPU_EXPORT void wgpuTextureDrop(WGPUTexture texture);
+WGPU_EXPORT void wgpuTextureViewDrop(WGPUTextureView textureView);
 
 #ifdef __cplusplus
 } // extern "C"
